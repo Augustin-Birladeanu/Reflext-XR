@@ -1,0 +1,21 @@
+# Backend
+InscapeBackend/node_modules/
+InscapeBackend/.env
+*.env
+
+# Xcode
+Inscape/Inscape.xcodeproj/project.xcworkspace/xcuserdata/
+Inscape/Inscape.xcodeproj/xcuserdata/
+Inscape/Inscape.xcodeproj/project.xcworkspace/xcshareddata/
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Mac
+.DS_Store
+*.swp
