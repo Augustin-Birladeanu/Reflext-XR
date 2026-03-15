@@ -36,7 +36,6 @@ const uploadImage = async (b64Data, userId) => {
     Body: buffer,
     ContentType: 'image/png',
     // For public read access. Remove if using signed URLs.
-    ACL: 'public-read',
   });
 
   await s3Client.send(command);
