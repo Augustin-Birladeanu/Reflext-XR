@@ -8,48 +8,46 @@ struct GenerateView: View {
     @FocusState private var isPromptFocused: Bool
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
+        ScrollView {
+            VStack(spacing: 24) {
 
-                    // Credits badge
-                    if let credits = session.currentUser?.credits {
-                        CreditsView(credits: credits)
-                    }
-
-                    // Prompt input
-                    promptSection
-
-                    // Generate button
-                    generateButton
-
-                    // Result
-                    if viewModel.isLoading {
-                        loadingSection
-                    } else if let url = viewModel.generatedImageURL {
-                        imagePreviewSection(url: url)
-                    }
-
-                    // Error
-                    if let error = viewModel.errorMessage {
-                        errorBanner(message: error)
-                    }
-
-                    // Success
-                    if let success = viewModel.successMessage, viewModel.generatedImageURL != nil {
-                        successBanner(message: success)
-                    }
+                // Credits badge
+                if let credits = session.currentUser?.credits {
+                    CreditsView(credits: credits)
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
+
+                // Prompt input
+                promptSection
+
+                // Generate button
+                generateButton
+
+                // Result
+                if viewModel.isLoading {
+                    loadingSection
+                } else if let url = viewModel.generatedImageURL {
+                    imagePreviewSection(url: url)
+                }
+
+                // Error
+                if let error = viewModel.errorMessage {
+                    errorBanner(message: error)
+                }
+
+                // Success
+                if let success = viewModel.successMessage, viewModel.generatedImageURL != nil {
+                    successBanner(message: success)
+                }
             }
-            .navigationTitle("Inscape")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") { isPromptFocused = false }
-                }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+        }
+        .navigationTitle("Create")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { isPromptFocused = false }
             }
         }
     }

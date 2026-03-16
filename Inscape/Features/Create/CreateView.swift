@@ -1,0 +1,138 @@
+// CreateView.swift
+
+import SwiftUI
+import PhotosUI
+
+struct CreateView: View {
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var showOptions = false
+    @State private var navigateToPrompt = false
+    @State private var selectedOption: String? = nil
+    @State private var selectedPhoto: PhotosPickerItem? = nil
+
+    private let styleOptions = [
+        "Realistic", "Anime", "Watercolor", "Oil Painting",
+        "Sketch", "Surrealism", "Minimalist", "Cyberpunk"
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // MARK: Custom Header
+            HStack {
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.blue)
+                }
+                Spacer()
+                Text("Create")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.primary)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(Color(.systemBackground))
+
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 20) {
+
+                // Heading
+                Text("How would you like to\ncreate today?")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundColor(.primary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, 8)
+
+                // MARK: Card 1 — Enter a Prompt
+                NavigationLink(destination: GenerateView()) {
+                    CreateCard(imageName: "home_create") {
+                        Text("Enter a Prompt")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Color(.darkGray))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .padding(.horizontal, 24)
+                    }
+                }
+                .buttonStyle(.plain)
+
+                // MARK: Card 2 — Select from Options
+                CreateCard(imageName: "createUI-options") {
+                    Menu {
+                        ForEach(styleOptions, id: \.self) { option in
+                            Button(option) { selectedOption = option }
+                        }
+                    } label: {
+                        HStack {
+                            Text(selectedOption ?? "Select from Options")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(Color(.darkGray))
+                            Spacer()
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Color(.darkGray))
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 14)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .padding(.horizontal, 24)
+                    }
+                }
+
+                // MARK: Card 3 — Select from Images
+                PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                    CreateCard(imageName: "createUI-select") {
+                        Text("Select from Images")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.white)
+                            .shadow(color: .black.opacity(0.4), radius: 4, x: 0, y: 2)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 32)
+        }
+        .background(Color(.systemBackground))
+        } // end outer VStack
+        .background(Color(.systemBackground))
+        .navigationBarHidden(true)
+    }
+}
+
+// MARK: - Reusable Card Container
+
+struct CreateCard<Overlay: View>: View {
+    let imageName: String
+    @ViewBuilder let overlay: () -> Overlay
+
+    var body: some View {
+        ZStack {
+            if UIImage(named: imageName) != nil {
+                Image(imageName)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Color.gray.opacity(0.3)
+            }
+
+            overlay()
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 160)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+#Preview {
+    NavigationStack {
+        CreateView()
+            .environmentObject(SessionManager.shared)
+    }
+}

@@ -18,7 +18,8 @@ struct HomeView: View {
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
-            )
+            ),
+            destination: .create
         ),
         HomeCard(
             title: "Learn",
@@ -31,7 +32,8 @@ struct HomeView: View {
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
-            )
+            ),
+            destination: nil
         ),
         HomeCard(
             title: "Reflect",
@@ -44,7 +46,8 @@ struct HomeView: View {
                 ],
                 startPoint: .top,
                 endPoint: .bottom
-            )
+            ),
+            destination: nil
         ),
         HomeCard(
             title: "Creative Calm",
@@ -57,25 +60,29 @@ struct HomeView: View {
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
-            )
+            ),
+            destination: nil
         )
     ]
 
     var body: some View {
+        NavigationStack {
         VStack(spacing: 0) {
             // MARK: Header
             HStack(alignment: .center) {
                 // Logo
-                HStack(spacing: 10) {
-                    ReflectXRLogo()
-                        .frame(width: 42, height: 42)
+                HStack(spacing: 4) {
+                    Image("home_logo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 90, height: 90)
 
-                    VStack(alignment: .leading, spacing: 1) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text("Reflect XR")
-                            .font(.system(size: 17, weight: .bold))
+                            .font(.system(size: 24, weight: .bold))
                             .foregroundColor(.primary)
                         Text("Enhancing Life for Wellness")
-                            .font(.system(size: 10, weight: .regular))
+                            .font(.system(size: 13, weight: .regular))
                             .foregroundColor(.secondary)
                     }
                 }
@@ -100,7 +107,14 @@ struct HomeView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 12) {
                     ForEach(cards) { card in
-                        HomeCardView(card: card)
+                        if let dest = card.destination {
+                            NavigationLink(value: dest) {
+                                HomeCardView(card: card)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            HomeCardView(card: card)
+                        }
                     }
                 }
                 .padding(.horizontal, 16)
@@ -109,16 +123,28 @@ struct HomeView: View {
             }
             .background(Color(.systemBackground))
         }
+        .navigationDestination(for: HomeDestination.self) { dest in
+            switch dest {
+            case .create:
+                CreateView()
+            }
+        }
+        }
     }
 }
 
 // MARK: - Card Model
+
+enum HomeDestination: Hashable {
+    case create
+}
 
 struct HomeCard: Identifiable {
     let id = UUID()
     let title: String
     let imageName: String
     let fallbackGradient: LinearGradient
+    let destination: HomeDestination?
 }
 
 // MARK: - Card View
@@ -137,6 +163,10 @@ struct HomeCardView: View {
                 card.fallbackGradient
             }
 
+            Text(card.title)
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(.white)
+                .shadow(color: .black.opacity(0.4), radius: 4, x: 0, y: 2)
         }
         .frame(maxWidth: .infinity)
         .frame(height: 148)
@@ -144,45 +174,6 @@ struct HomeCardView: View {
     }
 }
 
-// MARK: - Reflect XR Logo
-
-struct ReflectXRLogo: View {
-    private let petals: [(angle: Double, colors: [Color])] = [
-        (0,   [Color(red: 0.95, green: 0.35, blue: 0.35), Color(red: 0.95, green: 0.60, blue: 0.20)]),
-        (60,  [Color(red: 0.95, green: 0.70, blue: 0.10), Color(red: 0.50, green: 0.85, blue: 0.20)]),
-        (120, [Color(red: 0.20, green: 0.80, blue: 0.50), Color(red: 0.10, green: 0.70, blue: 0.90)]),
-        (180, [Color(red: 0.25, green: 0.55, blue: 0.95), Color(red: 0.60, green: 0.30, blue: 0.90)]),
-        (240, [Color(red: 0.75, green: 0.25, blue: 0.85), Color(red: 0.95, green: 0.30, blue: 0.60)]),
-        (300, [Color(red: 0.95, green: 0.40, blue: 0.20), Color(red: 0.95, green: 0.65, blue: 0.10)])
-    ]
-
-    var body: some View {
-        GeometryReader { geo in
-            let size = min(geo.size.width, geo.size.height)
-            let petalW = size * 0.38
-            let petalH = size * 0.52
-            let offset = size * 0.18
-
-            ZStack {
-                ForEach(Array(petals.enumerated()), id: \.offset) { index, petal in
-                    Ellipse()
-                        .fill(
-                            LinearGradient(
-                                colors: petal.colors,
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .frame(width: petalW, height: petalH)
-                        .offset(y: -offset)
-                        .rotationEffect(.degrees(petal.angle))
-                        .opacity(0.88)
-                }
-            }
-            .frame(width: size, height: size)
-        }
-    }
-}
 
 #Preview {
     HomeView()
