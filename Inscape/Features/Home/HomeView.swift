@@ -137,18 +137,6 @@ struct HomeCardView: View {
                 card.fallbackGradient
             }
 
-            // Full-width dark overlay to cover image text, app label on top
-            VStack {
-                Spacer()
-                ZStack {
-                    Color.black.opacity(0.52)
-                    Text(card.title)
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(.white)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 52)
-            }
         }
         .frame(maxWidth: .infinity)
         .frame(height: 148)
