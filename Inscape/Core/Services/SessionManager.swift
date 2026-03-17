@@ -28,7 +28,7 @@ final class SessionManager: ObservableObject {
     }
 
     func updateCredits(_ newCredits: Int) {
-        guard var user = currentUser else { return }
+        guard let user = currentUser else { return }
         // Rebuild with updated credits
         currentUser = UserProfile(
             id: user.id,

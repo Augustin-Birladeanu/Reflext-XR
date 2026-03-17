@@ -33,7 +33,7 @@ struct HomeView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            destination: nil
+            destination: .learn
         ),
         HomeCard(
             title: "Reflect",
@@ -127,6 +127,8 @@ struct HomeView: View {
             switch dest {
             case .create:
                 CreateView()
+            case .learn:
+                LearnView()
             }
         }
         }
@@ -137,6 +139,7 @@ struct HomeView: View {
 
 enum HomeDestination: Hashable {
     case create
+    case learn
 }
 
 struct HomeCard: Identifiable {
