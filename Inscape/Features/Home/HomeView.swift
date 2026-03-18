@@ -61,7 +61,7 @@ struct HomeView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            destination: nil
+            destination: .creativeCalm
         )
     ]
 
@@ -129,6 +129,8 @@ struct HomeView: View {
                 CreateView()
             case .learn:
                 LearnView()
+            case .creativeCalm:
+                CreativeCalmView()
             }
         }
         }
@@ -140,6 +142,7 @@ struct HomeView: View {
 enum HomeDestination: Hashable {
     case create
     case learn
+    case creativeCalm
 }
 
 struct HomeCard: Identifiable {
