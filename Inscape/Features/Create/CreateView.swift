@@ -46,7 +46,7 @@ struct CreateView: View {
                     .padding(.top, 8)
 
                 // MARK: Card 1 — Enter a Prompt
-                NavigationLink(destination: PromptView()) {
+                NavigationLink(destination: ConceptsView()) {
                     CreateCard(imageName: "home_create") {
                         Text("Enter a Prompt")
                             .font(.system(size: 16, weight: .medium))

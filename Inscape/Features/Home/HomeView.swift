@@ -126,7 +126,7 @@ struct HomeView: View {
         .navigationDestination(for: HomeDestination.self) { dest in
             switch dest {
             case .create:
-                CreateView()
+                ConceptsView()
             case .learn:
                 LearnView()
             case .creativeCalm:
