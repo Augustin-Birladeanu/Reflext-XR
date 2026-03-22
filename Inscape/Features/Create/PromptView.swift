@@ -84,12 +84,27 @@ struct PromptView: View {
 
     private var canProceed: Bool { selectedEmotion != nil && selectedStyle != nil }
 
-    private var composedPrompt: String {
-        let emotion = selectedEmotion?.lowercased() ?? ""
-        let style   = selectedStyle ?? ""
-        let t       = template
-        return "\(t.before) \(emotion) \(t.after) \(style) art style. Theme: \(concept)."
-    }
+   private static let styleDescriptions: [String: String] = [
+    "Watercolor":    "soft watercolor washes, delicate brushstrokes, translucent layers, flowing pigment on textured paper",
+    "Oil Painting":  "rich oil paint texture, impasto technique, deep luminous colors, classical brushwork",
+    "Sketch":        "detailed pencil sketch, fine linework, subtle hatching, raw expressive strokes",
+    "Pastel":        "soft pastel tones, chalky texture, gentle blending, warm muted palette",
+    "Dreamlike":     "ethereal lighting, soft focus, cinematic bokeh, surreal atmosphere, hazy golden tones",
+    "Abstract":      "bold abstract forms, expressive color fields, dynamic composition, non-representational shapes",
+    "Minimalist":    "clean minimalist composition, generous negative space, simple geometric forms, muted palette",
+    "Surrealist":    "surrealist imagery, unexpected juxtapositions, dreamscape environment, hyper-detailed realism",
+    "Ink":           "bold ink illustration, strong contrast, fluid brushwork, expressive black linework",
+    "Vintage":       "vintage aesthetic, faded tones, aged texture, nostalgic color grading, retro grain",
+    "Impressionist": "impressionist style, loose visible brushstrokes, vibrant dappled light, atmospheric color"
+]
+
+private var composedPrompt: String {
+    let emotion          = selectedEmotion?.lowercased() ?? ""
+    let style            = selectedStyle ?? ""
+    let styleDescription = Self.styleDescriptions[style] ?? "\(style) art style"
+    let t                = template
+    return "\(t.before) \(emotion) \(t.after) Rendered in \(styleDescription). Theme: \(concept)."
+}
 
     var body: some View {
         VStack(spacing: 0) {
