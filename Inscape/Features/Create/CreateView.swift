@@ -6,15 +6,7 @@ import PhotosUI
 struct CreateView: View {
 
     @Environment(\.dismiss) private var dismiss
-    @State private var showOptions = false
-    @State private var navigateToPrompt = false
-    @State private var selectedOption: String? = nil
     @State private var selectedPhoto: PhotosPickerItem? = nil
-
-    private let styleOptions = [
-        "Realistic", "Anime", "Watercolor", "Oil Painting",
-        "Sketch", "Surrealism", "Minimalist", "Cyberpunk"
-    ]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -46,7 +38,7 @@ struct CreateView: View {
                     .padding(.top, 8)
 
                 // MARK: Card 1 — Enter a Prompt
-                NavigationLink(destination: ConceptsView()) {
+                NavigationLink(destination: FreeTextPromptView()) {
                     CreateCard(imageName: "home_create") {
                         Text("Enter a Prompt")
                             .font(.system(size: 16, weight: .medium))
@@ -61,29 +53,19 @@ struct CreateView: View {
                 .buttonStyle(.plain)
 
                 // MARK: Card 2 — Select from Options
-                CreateCard(imageName: "createUI-options") {
-                    Menu {
-                        ForEach(styleOptions, id: \.self) { option in
-                            Button(option) { selectedOption = option }
-                        }
-                    } label: {
-                        HStack {
-                            Text(selectedOption ?? "Select from Options")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(Color(.darkGray))
-                            Spacer()
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(Color(.darkGray))
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 14)
-                        .frame(maxWidth: .infinity)
-                        .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .padding(.horizontal, 24)
+                NavigationLink(destination: ConceptsView()) {
+                    CreateCard(imageName: "createUI-options") {
+                        Text("Select from Options")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Color(.darkGray))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .padding(.horizontal, 24)
                     }
                 }
+                .buttonStyle(.plain)
 
                 // MARK: Card 3 — Select from Images
                 PhotosPicker(selection: $selectedPhoto, matching: .images) {

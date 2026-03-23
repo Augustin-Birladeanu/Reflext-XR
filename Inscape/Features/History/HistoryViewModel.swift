@@ -53,7 +53,7 @@ final class HistoryViewModel: ObservableObject {
             // Load up to 100 most recent for history view
             images = try await apiClient.getImages(page: 1, limit: 100)
         } catch APIError.unauthorized {
-            errorMessage = "Session expired. Please log in again."
+            SessionManager.shared.signOut()
         } catch {
             errorMessage = error.localizedDescription
         }

@@ -2,25 +2,30 @@
 
 import SwiftUI
 
-// MARK: - Main View
-
 struct BreathingMandalaView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var phase: BreathPhase = .idle
-    @State private var outerScale: CGFloat = 1.0
-    @State private var middleScale: CGFloat = 1.0
-    @State private var innerScale: CGFloat = 1.0
-    @State private var outerRotation: Double = 0
-    @State private var middleRotation: Double = 0
-    @State private var idlePulse: CGFloat = 1.0
+    @State private var outerScale: CGFloat = 1.0   // driven by breath cycle
 
-    // Petal colors — nil means uncolored
-    @State private var outerColors: [Color?] = Array(repeating: nil, count: 12)
-    @State private var middleColors: [Color?] = Array(repeating: nil, count: 8)
-    @State private var innerColors: [Color?] = Array(repeating: nil, count: 6)
+    // Hold-to-grow state
+    @State private var holdScale: CGFloat = 1.0
+    @State private var colorProgress: CGFloat = 0.0
+    @State private var growTimer: Timer?
+    @State private var drainTimer: Timer?
 
     @State private var selectedColorIndex: Int = 0
+
+    // Cycles through all four mandalas on each visit
+    @AppStorage("breathingMandalaIndex") private var nextMandalaIndex: Int = 0
+    @State private var mandalaName: String = "Mandala1"
+    private let mandalaNames = ["Mandala1", "Mandala2", "Mandala4"]
+
+    private let maxHoldScale: CGFloat  = 1.65
+    private let growRate: CGFloat      = 0.003
+    private let colorGrowRate: CGFloat = 0.0046
+    private let colorDrainRate: CGFloat = 0.011
+    private let holdShrinkRate: CGFloat = 0.65 * 0.011
 
     let palette: [Color] = [
         Color(red: 0.62, green: 0.42, blue: 0.92), // violet
@@ -33,19 +38,20 @@ struct BreathingMandalaView: View {
 
     var selectedColor: Color { palette[selectedColorIndex] }
 
+    var revealRadius: CGFloat { max(colorProgress * 155, 1) }
+
     enum BreathPhase: Equatable {
         case idle, inhale, hold, exhale
-
-        var label: String {
-            switch self {
-            case .idle:   return "Tap a petal to begin"
-            case .inhale: return "Breathe in…"
-            case .hold:   return "Hold…"
-            case .exhale: return "Breathe out…"
-            }
-        }
-
         var labelOpacity: Double { self == .idle ? 0.55 : 0.90 }
+    }
+
+    var displayLabel: String {
+        switch phase {
+        case .idle:   return "Hold to color"
+        case .inhale: return "Breathe in…"
+        case .hold:   return "Release when ready"
+        case .exhale: return "Breathe out…"
+        }
     }
 
     var body: some View {
@@ -55,107 +61,26 @@ struct BreathingMandalaView: View {
                     Color(red: 0.07, green: 0.05, blue: 0.18),
                     Color(red: 0.12, green: 0.08, blue: 0.28)
                 ],
-                startPoint: .top,
-                endPoint: .bottom
+                startPoint: .top, endPoint: .bottom
             )
             .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 Spacer()
 
-                // MARK: Mandala
-                ZStack {
-                    // Outer ring — 12 petals
-                    ForEach(0..<12, id: \.self) { i in
-                        colorablePetal(
-                            width: 36, height: 110, offsetY: -90,
-                            angle: Double(i) * 30,
-                            baseGradient: LinearGradient(
-                                colors: [
-                                    Color(red: 0.62, green: 0.42, blue: 0.92).opacity(0.28),
-                                    Color(red: 0.48, green: 0.68, blue: 0.95).opacity(0.10)
-                                ],
-                                startPoint: .top, endPoint: .bottom
-                            ),
-                            fillColor: outerColors[i]
-                        )
-                        .onTapGesture { tapPetal(ring: .outer, index: i) }
-                    }
-                    .scaleEffect(outerScale)
-                    .rotationEffect(.degrees(outerRotation))
-
-                    // Middle ring — 8 petals
-                    ForEach(0..<8, id: \.self) { i in
-                        colorablePetal(
-                            width: 26, height: 72, offsetY: -55,
-                            angle: Double(i) * 45,
-                            baseGradient: LinearGradient(
-                                colors: [
-                                    Color(red: 0.76, green: 0.55, blue: 0.96).opacity(0.40),
-                                    Color(red: 0.76, green: 0.55, blue: 0.96).opacity(0.15)
-                                ],
-                                startPoint: .top, endPoint: .bottom
-                            ),
-                            fillColor: middleColors[i]
-                        )
-                        .onTapGesture { tapPetal(ring: .middle, index: i) }
-                    }
-                    .scaleEffect(middleScale)
-                    .rotationEffect(.degrees(-middleRotation * 0.65))
-
-                    // Inner ring — 6 petals
-                    ForEach(0..<6, id: \.self) { i in
-                        colorablePetal(
-                            width: 18, height: 44, offsetY: -32,
-                            angle: Double(i) * 60,
-                            baseGradient: LinearGradient(
-                                colors: [
-                                    Color(red: 0.90, green: 0.78, blue: 1.00).opacity(0.60),
-                                    Color(red: 0.90, green: 0.78, blue: 1.00).opacity(0.20)
-                                ],
-                                startPoint: .top, endPoint: .bottom
-                            ),
-                            fillColor: innerColors[i]
-                        )
-                        .onTapGesture { tapPetal(ring: .inner, index: i) }
-                    }
-                    .scaleEffect(innerScale)
-                    .rotationEffect(.degrees(outerRotation * 0.45))
-
-                    // Centre glow
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [
-                                    Color.white.opacity(0.95),
-                                    Color(red: 0.72, green: 0.50, blue: 0.98).opacity(0.60),
-                                    Color.clear
-                                ],
-                                center: .center,
-                                startRadius: 0,
-                                endRadius: 30
-                            )
-                        )
-                        .frame(width: 48, height: 48)
-                        .shadow(color: Color(red: 0.65, green: 0.45, blue: 0.98).opacity(0.9), radius: 16)
-                        .scaleEffect(phase == .idle ? idlePulse : 1.0)
-                        .onTapGesture {
-                            if phase == .idle || phase == .exhale { startCycle() }
-                        }
-                }
-                .frame(width: 260, height: 260)
+                imageMandala
+                    .frame(width: 260, height: 260)
 
                 Spacer().frame(height: 48)
 
-                // MARK: Phase label
-                Text(phase.label)
+                Text(displayLabel)
                     .font(.system(size: 20, weight: .light, design: .rounded))
                     .foregroundColor(.white.opacity(phase.labelOpacity))
                     .animation(.easeInOut(duration: 0.35), value: phase)
 
                 Spacer().frame(height: 36)
 
-                // MARK: Color palette
+                // Color palette
                 HStack(spacing: 18) {
                     ForEach(palette.indices, id: \.self) { i in
                         let isSelected = selectedColorIndex == i
@@ -163,10 +88,9 @@ struct BreathingMandalaView: View {
                             .fill(palette[i])
                             .frame(width: isSelected ? 36 : 26, height: isSelected ? 36 : 26)
                             .overlay(
-                                Circle()
-                                    .stroke(Color.white.opacity(isSelected ? 0.85 : 0.0), lineWidth: 2)
+                                Circle().stroke(Color.white.opacity(isSelected ? 0.85 : 0), lineWidth: 2)
                             )
-                            .shadow(color: palette[i].opacity(isSelected ? 0.7 : 0.0), radius: 8)
+                            .shadow(color: palette[i].opacity(isSelected ? 0.7 : 0), radius: 8)
                             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedColorIndex)
                             .onTapGesture { selectedColorIndex = i }
                     }
@@ -194,68 +118,87 @@ struct BreathingMandalaView: View {
             .padding(.vertical, 16)
         }
         .onAppear {
-            withAnimation(.linear(duration: 24).repeatForever(autoreverses: false)) {
-                outerRotation = 360
-            }
-            withAnimation(.linear(duration: 18).repeatForever(autoreverses: false)) {
-                middleRotation = 360
-            }
-            withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
-                idlePulse = 1.10
-            }
+            // Capture this visit's mandala, then advance for next visit
+            mandalaName = mandalaNames[nextMandalaIndex % mandalaNames.count]
+            nextMandalaIndex = (nextMandalaIndex + 1) % mandalaNames.count
         }
+        .onDisappear { stopAll() }
     }
 
-    // MARK: - Petal Builder
+    // MARK: - Mandala
 
     @ViewBuilder
-    private func colorablePetal(
-        width: CGFloat,
-        height: CGFloat,
-        offsetY: CGFloat,
-        angle: Double,
-        baseGradient: LinearGradient,
-        fillColor: Color?
-    ) -> some View {
+    private var imageMandala: some View {
         ZStack {
-            // Base shape — always visible
-            Ellipse()
-                .fill(baseGradient)
-                .frame(width: width, height: height)
+            Image(mandalaName)
+                .resizable()
+                .scaledToFit()
+                .blendMode(.screen)
 
-            // Color fill — fades in when colored
-            if let c = fillColor {
-                Ellipse()
-                    .fill(c.opacity(0.78))
-                    .frame(width: width, height: height)
-                    .shadow(color: c.opacity(0.55), radius: 6)
-                    .transition(.opacity)
-            }
+            RadialGradient(
+                stops: [
+                    .init(color: selectedColor,              location: 0.00),
+                    .init(color: selectedColor,              location: 0.82),
+                    .init(color: selectedColor.opacity(0.4), location: 0.92),
+                    .init(color: .clear,                     location: 1.00)
+                ],
+                center: .center,
+                startRadius: 0,
+                endRadius: revealRadius
+            )
+            .mask(Image(mandalaName).resizable().scaledToFit())
+            .blendMode(.screen)
+            .shadow(color: selectedColor.opacity(colorProgress * 0.6), radius: 18)
         }
-        .frame(width: width, height: height)
-        .offset(y: offsetY)
-        .rotationEffect(.degrees(angle))
-        .animation(.easeInOut(duration: 0.35), value: fillColor != nil)
+        .scaleEffect(holdScale)
+        .scaleEffect(outerScale)
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    if growTimer == nil { startGrowing() }
+                    if phase == .idle || phase == .exhale { startCycle() }
+                }
+                .onEnded { _ in
+                    stopGrowing()
+                    startDraining()
+                    if phase == .hold { startExhale() }
+                }
+        )
     }
 
-    // MARK: - Interaction
+    // MARK: - Timers
 
-    enum PetalRing { case outer, middle, inner }
+    private func startGrowing() {
+        drainTimer?.invalidate()
+        drainTimer = nil
+        guard growTimer == nil else { return }
+        growTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { _ in
+            holdScale     = min(holdScale     + growRate,      maxHoldScale)
+            colorProgress = min(colorProgress + colorGrowRate, 1.0)
+        }
+    }
 
-    private func tapPetal(ring: PetalRing, index: Int) {
-        withAnimation(.easeInOut(duration: 0.35)) {
-            switch ring {
-            case .outer:
-                outerColors[index] = (outerColors[index] == nil) ? selectedColor : nil
-            case .middle:
-                middleColors[index] = (middleColors[index] == nil) ? selectedColor : nil
-            case .inner:
-                innerColors[index] = (innerColors[index] == nil) ? selectedColor : nil
+    private func stopGrowing() {
+        growTimer?.invalidate()
+        growTimer = nil
+    }
+
+    private func startDraining() {
+        drainTimer?.invalidate()
+        drainTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { _ in
+            holdScale     = max(holdScale     - holdShrinkRate, 1.0)
+            colorProgress = max(colorProgress - colorDrainRate, 0.0)
+            if holdScale <= 1.0 && colorProgress <= 0.0 {
+                drainTimer?.invalidate()
+                drainTimer = nil
             }
         }
-        if phase == .idle || phase == .exhale {
-            startCycle()
-        }
+    }
+
+    private func stopAll() {
+        stopGrowing()
+        drainTimer?.invalidate()
+        drainTimer = nil
     }
 
     // MARK: - Breath Cycle
@@ -264,26 +207,17 @@ struct BreathingMandalaView: View {
         phase = .inhale
         withAnimation(.easeInOut(duration: 4.0)) {
             outerScale = 1.55
-            middleScale = 1.45
-            innerScale = 1.65
         }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) { phase = .hold }
+    }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
-            phase = .hold
+    private func startExhale() {
+        guard phase == .hold else { return }
+        phase = .exhale
+        withAnimation(.easeInOut(duration: 4.0)) {
+            outerScale = 1.0
         }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) {
-            phase = .exhale
-            withAnimation(.easeInOut(duration: 4.0)) {
-                outerScale = 1.0
-                middleScale = 1.0
-                innerScale = 1.0
-            }
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 10.5) {
-            phase = .idle
-        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) { phase = .idle }
     }
 }
 

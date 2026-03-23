@@ -53,7 +53,7 @@ final class GenerateViewModel: ObservableObject {
         } catch APIError.insufficientCredits {
             errorMessage = "You've run out of credits. Purchase more to continue generating images."
         } catch APIError.unauthorized {
-            errorMessage = "Your session has expired. Please log in again."
+            session.signOut()
         } catch {
             errorMessage = error.localizedDescription
         }

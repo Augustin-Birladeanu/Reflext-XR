@@ -40,7 +40,7 @@ final class GalleryViewModel: ObservableObject {
             images = fetched
             hasMorePages = fetched.count == pageLimit
         } catch APIError.unauthorized {
-            errorMessage = "Session expired. Please log in again."
+            SessionManager.shared.signOut()
         } catch {
             errorMessage = error.localizedDescription
         }

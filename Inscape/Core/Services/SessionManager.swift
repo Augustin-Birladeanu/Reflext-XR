@@ -27,6 +27,21 @@ final class SessionManager: ObservableObject {
         UserDefaults.standard.removeObject(forKey: userKey)
     }
 
+    /// Call on app launch. Signs out if the stored token is rejected by the server (401).
+    /// Network errors are ignored so offline testing keeps the session alive.
+    func validateSession() async {
+        guard isAuthenticated else { return }
+        do {
+            let user = try await APIClient.shared.getMe()
+            currentUser = user
+            persistUser(user)
+        } catch APIError.unauthorized {
+            signOut()
+        } catch {
+            // Network unreachable or other error — keep the session
+        }
+    }
+
     func updateCredits(_ newCredits: Int) {
         guard let user = currentUser else { return }
         // Rebuild with updated credits

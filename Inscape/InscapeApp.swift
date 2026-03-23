@@ -12,6 +12,9 @@ struct InscapeApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(session)
+                .task {
+                    await session.validateSession()
+                }
         }
     }
 }
