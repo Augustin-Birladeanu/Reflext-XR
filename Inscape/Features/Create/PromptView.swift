@@ -4,6 +4,7 @@ import SwiftUI
 
 struct PromptView: View {
     let concept: String
+    var dailyConcept: DailyCreationConcept? = nil
 
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var session: SessionManager
@@ -11,6 +12,7 @@ struct PromptView: View {
     @State private var selectedEmotion: String? = nil
     @State private var selectedStyle: String? = nil
     @State private var navigateToResult = false
+    @State private var reflectionText: String = ""
 
     private let emotions = [
         "Joy", "Sadness", "Anxiety", "Hope", "Fear", "Anger",
@@ -27,6 +29,7 @@ struct PromptView: View {
 
     // Short subtitle shown under the "Prompt" title
     private var conceptSubtitle: String {
+        if let dc = dailyConcept { return dc.reflection }
         switch concept {
         case "A Safe Space":      return "A safe space for emotions"
         case "Emotional Waves":   return "Riding waves of feeling"
@@ -82,7 +85,9 @@ struct PromptView: View {
         }
     }
 
-    private var canProceed: Bool { selectedEmotion != nil && selectedStyle != nil }
+    private var canProceed: Bool {
+        dailyConcept != nil ? selectedStyle != nil : (selectedEmotion != nil && selectedStyle != nil)
+    }
 
    private static let styleDescriptions: [String: String] = [
     "Watercolor":    "soft watercolor washes, delicate brushstrokes, translucent layers, flowing pigment on textured paper",
@@ -99,10 +104,15 @@ struct PromptView: View {
 ]
 
 private var composedPrompt: String {
-    let emotion          = selectedEmotion?.lowercased() ?? ""
     let style            = selectedStyle ?? ""
     let styleDescription = Self.styleDescriptions[style] ?? "\(style) art style"
-    let t                = template
+    if let dc = dailyConcept {
+        let reflection = reflectionText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let reflectionClause = reflection.isEmpty ? "" : " Personal reflection: \(reflection)."
+        return "\(dc.prompt)\(reflectionClause) Rendered in \(styleDescription). Theme: \(dc.name)."
+    }
+    let emotion = selectedEmotion?.lowercased() ?? ""
+    let t       = template
     return "\(t.before) \(emotion) \(t.after) Rendered in \(styleDescription). Theme: \(concept)."
 }
 
@@ -146,30 +156,77 @@ private var composedPrompt: String {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 16) {
 
-                    // Sentence card
-                    VStack(alignment: .leading, spacing: 60) {
-                        Text(template.before)
-                            .font(.system(size: 17))
-                            .foregroundColor(.primary)
+                    if let dc = dailyConcept {
+                        // Daily creation card
+                        VStack(alignment: .leading, spacing: 20) {
+                            Text(dc.prompt)
+                                .font(.system(size: 17))
+                                .foregroundColor(.primary)
+                                .fixedSize(horizontal: false, vertical: true)
 
-                        pickerCapsule(
-                            label: selectedEmotion ?? "Pick an Emotion",
-                            isEmpty: selectedEmotion == nil,
-                            options: emotions
-                        ) { selectedEmotion = $0 }
+                            Divider()
 
-                        Text(template.after)
-                            .font(.system(size: 17))
-                            .foregroundColor(.primary)
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Reflect")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.secondary)
+                                    .textCase(.uppercase)
+                                Text(dc.reflection)
+                                    .font(.system(size: 15))
+                                    .foregroundColor(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                ZStack(alignment: .topLeading) {
+                                    if reflectionText.isEmpty {
+                                        Text("Write your thoughts here…")
+                                            .font(.system(size: 15))
+                                            .foregroundColor(Color(.placeholderText))
+                                            .padding(.top, 8)
+                                            .padding(.leading, 4)
+                                    }
+                                    TextEditor(text: $reflectionText)
+                                        .font(.system(size: 15))
+                                        .foregroundColor(.primary)
+                                        .frame(minHeight: 80)
+                                        .scrollContentBackground(.hidden)
+                                        .background(Color.clear)
+                                }
+                                .padding(.top, 4)
+                            }
+                        }
+                        .padding(24)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(.systemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(Color.black, lineWidth: 1.5)
+                        )
+                    } else {
+                        // Standard sentence card
+                        VStack(alignment: .leading, spacing: 60) {
+                            Text(template.before)
+                                .font(.system(size: 17))
+                                .foregroundColor(.primary)
+
+                            pickerCapsule(
+                                label: selectedEmotion ?? "Pick an Emotion",
+                                isEmpty: selectedEmotion == nil,
+                                options: emotions
+                            ) { selectedEmotion = $0 }
+
+                            Text(template.after)
+                                .font(.system(size: 17))
+                                .foregroundColor(.primary)
+                        }
+                        .padding(24)
+                        .frame(maxWidth: .infinity, minHeight: 340, alignment: .leading)
+                        .background(Color(.systemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(Color.black, lineWidth: 1.5)
+                        )
                     }
-                    .padding(24)
-                    .frame(maxWidth: .infinity, minHeight: 340, alignment: .leading)
-                    .background(Color(.systemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.black, lineWidth: 1.5)
-                    )
 
                     // Style picker
                     pickerCapsule(

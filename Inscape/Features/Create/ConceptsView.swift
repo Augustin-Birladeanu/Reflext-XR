@@ -6,6 +6,8 @@ struct ConceptsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedConcept: String? = nil
     @State private var navigateToCreate = false
+    @State private var navigateToDailyCreation = false
+    @State private var selectedDailyConcept: DailyCreationConcept? = nil
 
     private let concepts = [
         "A Safe Space",
@@ -75,19 +77,42 @@ struct ConceptsView: View {
                             }
                         }
                     }
+
+                    // MARK: Daily Creation
+                    Button {
+                        selectedDailyConcept = DailyCreationConcept.all.randomElement()
+                        navigateToDailyCreation = true
+                    } label: {
+                        Text("Daily Creation")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(Color.blue, lineWidth: 1.5)
+                            )
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 32)
             }
+            .safeAreaInset(edge: .bottom) {
+                continueBar
+            }
             .background(Color(.systemBackground))
-        }
-        .safeAreaInset(edge: .bottom) {
-            continueBar
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: selectedConcept)
         .navigationBarHidden(true)
         .navigationDestination(isPresented: $navigateToCreate) {
             PromptView(concept: selectedConcept ?? "")
+        }
+        .navigationDestination(isPresented: $navigateToDailyCreation) {
+            if let dc = selectedDailyConcept {
+                PromptView(concept: dc.name, dailyConcept: dc)
+            }
         }
     }
 
