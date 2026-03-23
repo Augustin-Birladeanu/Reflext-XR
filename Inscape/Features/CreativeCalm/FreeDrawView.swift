@@ -60,21 +60,26 @@ struct FreeDrawView: View {
             // MARK: UI overlay
             VStack {
                 // Top bar
-                HStack {
-                    Button { dismiss() } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.75))
+                ZStack {
+                    HStack {
+                        Button { dismiss() } label: {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.75))
+                        }
+                        Spacer()
+                        Button {
+                            completedStrokes.removeAll()
+                            activePoints = []
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 17))
+                                .foregroundColor(.white.opacity(0.55))
+                        }
                     }
-                    Spacer()
-                    Button {
-                        completedStrokes.removeAll()
-                        activePoints = []
-                    } label: {
-                        Image(systemName: "trash")
-                            .font(.system(size: 17))
-                            .foregroundColor(.white.opacity(0.55))
-                    }
+                    Text("Creative Calm")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.85))
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 16)

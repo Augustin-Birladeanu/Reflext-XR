@@ -8,8 +8,8 @@ struct CreativeCalmView: View {
     private let activities: [CalmActivity] = [
         CalmActivity(
             title: "Breathing Mandala",
-            subtitle: "Inhale & exhale with gentle animation",
-            gradient: LinearGradient(
+            imageName: "calm_mandala",
+            fallbackGradient: LinearGradient(
                 colors: [
                     Color(red: 0.38, green: 0.22, blue: 0.72),
                     Color(red: 0.60, green: 0.38, blue: 0.88)
@@ -17,13 +17,12 @@ struct CreativeCalmView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            icon: "circle.hexagongrid.fill",
             destination: .breathingMandala
         ),
         CalmActivity(
             title: "Finger Painting",
-            subtitle: "Soft watercolor blobs with colour picker",
-            gradient: LinearGradient(
+            imageName: "calm_trace",
+            fallbackGradient: LinearGradient(
                 colors: [
                     Color(red: 0.88, green: 0.42, blue: 0.52),
                     Color(red: 0.96, green: 0.68, blue: 0.36)
@@ -31,27 +30,25 @@ struct CreativeCalmView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            icon: "paintbrush.fill",
             destination: .fingerPainting
         ),
         CalmActivity(
-            title: "Paint Shapes",
-            subtitle: "Drag to bloom circles and shapes",
-            gradient: LinearGradient(
+            title: "Floating Bubbles",
+            imageName: "calm_bubbles",
+            fallbackGradient: LinearGradient(
                 colors: [
-                    Color(red: 0.12, green: 0.60, blue: 0.72),
-                    Color(red: 0.24, green: 0.78, blue: 0.56)
+                    Color(red: 0.10, green: 0.28, blue: 0.62),
+                    Color(red: 0.18, green: 0.54, blue: 0.82)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            icon: "square.on.circle",
-            destination: .paintShapes
+            destination: .floatingBubbles
         ),
         CalmActivity(
             title: "Free Draw",
-            subtitle: "Trace glowing lines on a dark canvas",
-            gradient: LinearGradient(
+            imageName: "calm_freedraw",
+            fallbackGradient: LinearGradient(
                 colors: [
                     Color(red: 0.08, green: 0.08, blue: 0.18),
                     Color(red: 0.20, green: 0.12, blue: 0.36)
@@ -59,7 +56,6 @@ struct CreativeCalmView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            icon: "scribble",
             destination: .freeDraw
         )
     ]
@@ -77,11 +73,6 @@ struct CreativeCalmView: View {
                 Text("Creative Calm")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(.primary)
-                Spacer()
-                // Balance the header
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(.clear)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
@@ -110,8 +101,8 @@ struct CreativeCalmView: View {
                 BreathingMandalaView()
             case .fingerPainting:
                 FingerPaintingView()
-            case .paintShapes:
-                PaintShapesView()
+            case .floatingBubbles:
+                FloatingBubblesView()
             case .freeDraw:
                 FreeDrawView()
             }
@@ -124,7 +115,7 @@ struct CreativeCalmView: View {
 enum CalmDestination: Hashable {
     case breathingMandala
     case fingerPainting
-    case paintShapes
+    case floatingBubbles
     case freeDraw
 }
 
@@ -133,9 +124,8 @@ enum CalmDestination: Hashable {
 struct CalmActivity: Identifiable {
     let id = UUID()
     let title: String
-    let subtitle: String
-    let gradient: LinearGradient
-    let icon: String
+    let imageName: String
+    let fallbackGradient: LinearGradient
     let destination: CalmDestination
 }
 
@@ -146,37 +136,31 @@ struct CalmActivityCard: View {
 
     var body: some View {
         ZStack {
-            activity.gradient
-
-            HStack(spacing: 16) {
-                Image(systemName: activity.icon)
-                    .font(.system(size: 34, weight: .light))
-                    .foregroundColor(.white.opacity(0.90))
-                    .frame(width: 44)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(activity.title)
-                        .font(.system(size: 19, weight: .bold))
-                        .foregroundColor(.white)
-                    Text(activity.subtitle)
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.75))
-                        .lineLimit(1)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.55))
+            if UIImage(named: activity.imageName) != nil {
+                Image(activity.imageName)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                activity.fallbackGradient
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 22)
+
+            // Subtle dark scrim so title stays legible over any image
+            LinearGradient(
+                colors: [Color.black.opacity(0.28), Color.black.opacity(0.08)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+
+            Text(activity.title)
+                .font(.system(size: 26, weight: .bold))
+                .foregroundColor(.white)
+                .shadow(color: .black.opacity(0.35), radius: 4, x: 0, y: 2)
+                .frame(maxWidth: .infinity, alignment: .center)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 108)
+        .frame(height: 148)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .black.opacity(0.10), radius: 8, x: 0, y: 4)
+        .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 4)
     }
 }
 

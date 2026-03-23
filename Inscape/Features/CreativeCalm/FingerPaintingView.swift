@@ -39,17 +39,17 @@ struct FingerPaintingView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                Text("Finger Painting")
+                Text("Creative Calm")
                     .font(.system(size: 17, weight: .semibold))
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            .background(Color(.systemBackground))
+            .background(Color(red: 0.99, green: 0.96, blue: 0.88))
 
             // MARK: Canvas
             GeometryReader { geo in
                 ZStack {
-                    Color(red: 0.98, green: 0.97, blue: 0.95)
+                    Color(red: 0.99, green: 0.96, blue: 0.88)
 
                     Canvas { ctx, _ in
                         for blob in blobs {
@@ -97,7 +97,7 @@ struct FingerPaintingView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 14)
             }
-            .background(Color(.systemBackground))
+            .background(Color(red: 0.99, green: 0.96, blue: 0.88))
         }
         .navigationBarHidden(true)
     }
