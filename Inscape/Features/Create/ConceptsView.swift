@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ConceptsView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var navManager: NavigationManager
     @State private var selectedConcept: String? = nil
     @State private var navigateToCreate = false
     @State private var navigateToDailyCreation = false
@@ -106,6 +107,9 @@ struct ConceptsView: View {
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: selectedConcept)
         .navigationBarHidden(true)
+        .onChange(of: navManager.popToRoot) { _, popping in
+            if popping { dismiss() }
+        }
         .navigationDestination(isPresented: $navigateToCreate) {
             PromptView(concept: selectedConcept ?? "")
         }

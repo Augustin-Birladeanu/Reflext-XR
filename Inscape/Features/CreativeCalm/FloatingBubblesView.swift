@@ -236,7 +236,7 @@ struct BubbleView: View {
                 breathScale = CGFloat.random(in: 1.04...1.10)
             }
         }
-        .onChange(of: model.isPopping) { isPopping in
+        .onChange(of: model.isPopping) { _, isPopping in
             if isPopping {
                 withAnimation(.easeOut(duration: 0.32)) {
                     popScale = 1.5

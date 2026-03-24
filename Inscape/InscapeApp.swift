@@ -7,11 +7,13 @@ import SwiftUI
 struct InscapeApp: App {
 
     @StateObject private var session = SessionManager.shared
+    @StateObject private var navManager = NavigationManager.shared
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(session)
+                .environmentObject(navManager)
                 .task {
                     await session.validateSession()
                 }

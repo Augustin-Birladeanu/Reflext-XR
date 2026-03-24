@@ -5,6 +5,7 @@ import SwiftUI
 struct HomeView: View {
 
     @State private var showMenu = false
+    @EnvironmentObject private var navManager: NavigationManager
 
     private let cards: [HomeCard] = [
         HomeCard(
@@ -47,7 +48,7 @@ struct HomeView: View {
                 startPoint: .top,
                 endPoint: .bottom
             ),
-            destination: nil
+            destination: .reflect
         ),
         HomeCard(
             title: "Creative Calm",
@@ -66,7 +67,7 @@ struct HomeView: View {
     ]
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navManager.path) {
         VStack(spacing: 0) {
             // MARK: Header
             HStack(alignment: .center) {
@@ -129,8 +130,16 @@ struct HomeView: View {
                 CreateView()
             case .learn:
                 LearnView()
+            case .reflect:
+                ReflectLibraryView()
             case .creativeCalm:
                 CreativeCalmView()
+            }
+        }
+        .onChange(of: navManager.popToRoot) { _, popping in
+            if popping {
+                navManager.path = NavigationPath()
+                navManager.popToRoot = false
             }
         }
         }
@@ -142,6 +151,7 @@ struct HomeView: View {
 enum HomeDestination: Hashable {
     case create
     case learn
+    case reflect
     case creativeCalm
 }
 

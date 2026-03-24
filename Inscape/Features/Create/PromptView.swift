@@ -8,6 +8,7 @@ struct PromptView: View {
 
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var session: SessionManager
+    @EnvironmentObject private var navManager: NavigationManager
 
     @State private var selectedEmotion: String? = nil
     @State private var selectedStyle: String? = nil
@@ -257,8 +258,11 @@ private var composedPrompt: String {
             .animation(.easeInOut(duration: 0.2), value: canProceed)
         }
         .navigationBarHidden(true)
+        .onChange(of: navManager.popToRoot) { _, popping in
+            if popping { dismiss() }
+        }
         .navigationDestination(isPresented: $navigateToResult) {
-            ImageResultView(prompt: composedPrompt)
+            PromptEditView(concept: concept, subtitle: conceptSubtitle, prompt: composedPrompt)
         }
     }
 

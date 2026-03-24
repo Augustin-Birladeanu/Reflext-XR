@@ -10,6 +10,7 @@ final class GenerateViewModel: ObservableObject {
 
     @Published var prompt: String = ""
     @Published var generatedImageURL: String?
+    @Published var generatedImageURLs: [String] = []
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     @Published var successMessage: String?
@@ -49,6 +50,35 @@ final class GenerateViewModel: ObservableObject {
                 successMessage = "Image generated! (Prompt slightly revised by AI)"
             } else {
                 successMessage = "Image generated successfully!"
+            }
+        } catch APIError.insufficientCredits {
+            errorMessage = "You've run out of credits. Purchase more to continue generating images."
+        } catch APIError.unauthorized {
+            session.signOut()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+
+        isLoading = false
+    }
+
+    func generateImages(count: Int = 4) async {
+        let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPrompt.isEmpty else {
+            errorMessage = "Please enter a prompt first."
+            return
+        }
+
+        isLoading = true
+        errorMessage = nil
+        generatedImageURLs = []
+
+        do {
+            for _ in 0..<count {
+                let result = try await apiClient.generateImage(prompt: trimmedPrompt)
+                generatedImageURLs.append(result.url)
+                creditsRemaining = result.creditsRemaining
+                session.updateCredits(result.creditsRemaining)
             }
         } catch APIError.insufficientCredits {
             errorMessage = "You've run out of credits. Purchase more to continue generating images."

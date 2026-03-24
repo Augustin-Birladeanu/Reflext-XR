@@ -6,6 +6,7 @@ import PhotosUI
 struct CreateView: View {
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var navManager: NavigationManager
     @State private var selectedPhoto: PhotosPickerItem? = nil
 
     var body: some View {
@@ -85,6 +86,9 @@ struct CreateView: View {
         } // end outer VStack
         .background(Color(.systemBackground))
         .navigationBarHidden(true)
+        .onChange(of: navManager.popToRoot) { _, popping in
+            if popping { dismiss() }
+        }
     }
 }
 

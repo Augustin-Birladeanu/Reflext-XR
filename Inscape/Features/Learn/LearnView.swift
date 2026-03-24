@@ -45,7 +45,7 @@ struct LearnView: View {
                 startPoint: .top,
                 endPoint: .bottom
             ),
-            destination: nil
+            destination: .selfCompassion
         ),
         LearnSection(
             title: "Journey",
@@ -105,6 +105,8 @@ struct LearnView: View {
             switch dest {
             case .creativity:
                 CreativityView()
+            case .selfCompassion:
+                SelfCompassionView()
             }
         }
         .navigationBarHidden(true)
@@ -115,6 +117,7 @@ struct LearnView: View {
 
 enum LearnDestination: Hashable {
     case creativity
+    case selfCompassion
 }
 
 // MARK: - Section Model

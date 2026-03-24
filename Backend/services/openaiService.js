@@ -22,6 +22,7 @@ const generateImage = async (prompt) => {
       prompt: prompt.trim(),
       n: 1,
       size: '1024x1024',
+      quality: 'medium',
       // gpt-image-1 always returns b64_json, no response_format param supported
     });
 

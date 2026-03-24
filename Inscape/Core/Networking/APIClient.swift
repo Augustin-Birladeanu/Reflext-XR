@@ -65,7 +65,8 @@ final class APIClient {
         path: String,
         method: String = "GET",
         body: [String: Any]? = nil,
-        requiresAuth: Bool = true
+        requiresAuth: Bool = true,
+        timeoutInterval: TimeInterval = 60
     ) async throws -> T {
         guard let url = URL(string: "\(baseURL)\(path)") else {
             throw APIError.invalidURL
@@ -74,7 +75,7 @@ final class APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 60
+        request.timeoutInterval = timeoutInterval
 
         if requiresAuth {
             guard let token = authToken else { throw APIError.unauthorized }
@@ -156,7 +157,8 @@ final class APIClient {
         let response: GenerateImageResponse = try await request(
             path: "/images/generate",
             method: "POST",
-            body: ["prompt": prompt]
+            body: ["prompt": prompt],
+            timeoutInterval: 120
         )
         guard let data = response.data else {
             throw APIError.serverError(response.error ?? "Image generation failed.")
