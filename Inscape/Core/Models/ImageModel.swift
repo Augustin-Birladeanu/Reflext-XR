@@ -51,6 +51,16 @@ struct DeleteResponse: Codable {
     let error: String?
 }
 
+struct InsightsData: Codable {
+    let insights: String
+}
+
+struct InsightsResponse: Codable {
+    let success: Bool
+    let data: InsightsData?
+    let error: String?
+}
+
 struct Pagination: Codable {
     let page: Int
     let limit: Int

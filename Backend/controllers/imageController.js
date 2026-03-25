@@ -1,7 +1,7 @@
 // controllers/imageController.js
 const { body, param, validationResult } = require('express-validator');
 const { pool } = require('../config/database');
-const { generateImage: generateOpenAIImage } = require('../services/openaiService');
+const { generateImage: generateOpenAIImage, generateInsights: generateOpenAIInsights } = require('../services/openaiService');
 const { uploadImage, deleteImage } = require('../services/storageService');
 
 // ─── Validation Rules ────────────────────────────────────────────────────────
@@ -244,10 +244,37 @@ const deleteImageById = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/images/insights
+ * Generate symbolic insights for a given prompt using GPT (no credit cost).
+ */
+const validateGenerateInsights = [
+  body('prompt')
+    .trim()
+    .notEmpty().withMessage('Prompt is required.')
+    .isLength({ min: 3, max: 1000 }).withMessage('Prompt must be between 3 and 1000 characters.'),
+];
+
+const getInsights = async (req, res) => {
+  if (handleValidationErrors(req, res)) return;
+
+  const { prompt } = req.body;
+
+  try {
+    const result = await generateOpenAIInsights(prompt);
+    return res.status(200).json({ success: true, data: { insights: result.insights } });
+  } catch (err) {
+    console.error('getInsights error:', err);
+    return res.status(502).json({ success: false, error: `Insights generation failed: ${err.message}` });
+  }
+};
+
 module.exports = {
   generateImage,
   getImages,
   getImageById,
   deleteImageById,
   validateGenerateImage,
+  getInsights,
+  validateGenerateInsights,
 };

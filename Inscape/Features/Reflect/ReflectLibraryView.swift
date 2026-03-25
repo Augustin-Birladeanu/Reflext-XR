@@ -4,11 +4,21 @@ import SwiftUI
 
 // MARK: - Library (list of past entries)
 
+private enum LibraryTab { case reflections, images }
+
 struct ReflectLibraryView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var store = JournalStore.shared
+    @StateObject private var galleryVM = GalleryViewModel()
 
+    @State private var selectedTab: LibraryTab = .reflections
     @State private var selectedEntry: JournalEntry? = nil
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 2),
+        GridItem(.flexible(), spacing: 2),
+        GridItem(.flexible(), spacing: 2)
+    ]
 
     private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -39,9 +49,57 @@ struct ReflectLibraryView: View {
             .padding(.vertical, 12)
             .background(Color(.systemBackground))
 
+            // MARK: Tab Picker
+            Picker("", selection: $selectedTab) {
+                Text("Reflections").tag(LibraryTab.reflections)
+                Text("Images").tag(LibraryTab.images)
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+
             Divider()
 
             // MARK: Content
+            if selectedTab == .reflections {
+                reflectionsTab
+            } else {
+                imagesTab
+            }
+        }
+        .background(Color(.systemBackground))
+        .navigationBarHidden(true)
+        .navigationDestination(item: $selectedEntry) { entry in
+            ReflectEntryDetailView(entry: entry)
+        }
+        .sheet(item: $galleryVM.selectedImage) { image in
+            ImageDetailView(image: image) {
+                galleryVM.confirmDelete(image)
+            }
+        }
+        .confirmationDialog(
+            "Delete Image",
+            isPresented: $galleryVM.showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                Task { await galleryVM.deleteImage() }
+            }
+            Button("Cancel", role: .cancel) { galleryVM.cancelDelete() }
+        } message: {
+            Text("This image will be permanently deleted.")
+        }
+        .task(id: selectedTab) {
+            if selectedTab == .images && galleryVM.images.isEmpty {
+                await galleryVM.loadImages()
+            }
+        }
+    }
+
+    // MARK: - Reflections Tab
+
+    private var reflectionsTab: some View {
+        Group {
             if store.entries.isEmpty {
                 Spacer()
                 VStack(spacing: 12) {
@@ -71,10 +129,52 @@ struct ReflectLibraryView: View {
                 }
             }
         }
-        .background(Color(.systemBackground))
-        .navigationBarHidden(true)
-        .navigationDestination(item: $selectedEntry) { entry in
-            ReflectEntryDetailView(entry: entry)
+    }
+
+    // MARK: - Images Tab
+
+    private var imagesTab: some View {
+        Group {
+            if galleryVM.isLoading && galleryVM.images.isEmpty {
+                Spacer()
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.4)
+                    Text("Loading images…")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+            } else if galleryVM.images.isEmpty {
+                Spacer()
+                VStack(spacing: 12) {
+                    Image(systemName: "photo.on.rectangle.angled")
+                        .font(.system(size: 44))
+                        .foregroundColor(.secondary)
+                    Text("No images yet")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.primary)
+                    Text("Images you generate will appear here.")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 32)
+                Spacer()
+            } else {
+                ScrollView(showsIndicators: false) {
+                    LazyVGrid(columns: columns, spacing: 2) {
+                        ForEach(galleryVM.images) { image in
+                            GalleryCell(image: image)
+                                .onTapGesture { galleryVM.selectedImage = image }
+                                .task { await galleryVM.loadMoreIfNeeded(currentItem: image) }
+                        }
+                    }
+                    if galleryVM.isLoadingMore {
+                        ProgressView().padding(.vertical, 20)
+                    }
+                }
+            }
         }
     }
 }

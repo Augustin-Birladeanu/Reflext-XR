@@ -166,6 +166,19 @@ final class APIClient {
         return data
     }
 
+    func generateInsights(prompt: String) async throws -> String {
+        let response: InsightsResponse = try await request(
+            path: "/images/insights",
+            method: "POST",
+            body: ["prompt": prompt],
+            timeoutInterval: 30
+        )
+        guard let data = response.data else {
+            throw APIError.serverError(response.error ?? "Insights generation failed.")
+        }
+        return data.insights
+    }
+
     func getImages(page: Int = 1, limit: Int = 20) async throws -> [ImageModel] {
         let response: ImagesListResponse = try await request(
             path: "/images?page=\(page)&limit=\(limit)"

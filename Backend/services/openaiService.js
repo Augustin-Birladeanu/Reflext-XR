@@ -50,4 +50,42 @@ const generateImage = async (prompt) => {
   }
 };
 
-module.exports = { generateImage };
+/**
+ * Generate symbolic insights about an image prompt using GPT.
+ * @param {string} prompt - The image prompt to analyse.
+ * @returns {Promise<{ insights: string }>}
+ */
+const generateInsights = async (prompt) => {
+  if (!prompt || typeof prompt !== 'string') {
+    throw new Error('A valid prompt string is required.');
+  }
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are an art therapist and symbolic analyst. When given an image prompt, write 2–3 sentences describing the symbolism, emotional meaning, and psychological significance of the image. Be warm, insightful, and accessible — avoid jargon.',
+        },
+        {
+          role: 'user',
+          content: `Image prompt: "${prompt.trim()}"`,
+        },
+      ],
+      max_tokens: 200,
+      temperature: 0.75,
+    });
+
+    const insights = completion.choices[0]?.message?.content?.trim() || '';
+    return { insights };
+  } catch (err) {
+    if (err instanceof OpenAI.APIError) {
+      throw new Error(`OpenAI API error (${err.status}): ${err.message}`);
+    }
+    throw err;
+  }
+};
+
+module.exports = { generateImage, generateInsights };
