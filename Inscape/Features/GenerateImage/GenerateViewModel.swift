@@ -51,6 +51,8 @@ final class GenerateViewModel: ObservableObject {
             } else {
                 successMessage = "Image generated successfully!"
             }
+        } catch APIError.contentFlagged {
+            errorMessage = "Your prompt contains inappropriate content.\nPlease try a different prompt."
         } catch APIError.insufficientCredits {
             errorMessage = "You've run out of credits. Purchase more to continue generating images."
         } catch APIError.unauthorized {
@@ -80,6 +82,8 @@ final class GenerateViewModel: ObservableObject {
                 creditsRemaining = last.creditsRemaining
                 session.updateCredits(last.creditsRemaining)
             }
+        } catch APIError.contentFlagged {
+            errorMessage = "Your prompt contains inappropriate content.\nPlease try a different prompt."
         } catch APIError.insufficientCredits {
             errorMessage = "You've run out of credits. Purchase more to continue generating images."
         } catch APIError.unauthorized {

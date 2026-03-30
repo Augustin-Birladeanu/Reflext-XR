@@ -7,6 +7,19 @@ const openai = new OpenAI({
 });
 
 /**
+ * Run a prompt through OpenAI's Moderation API.
+ * Throws if the content is flagged as inappropriate.
+ * @param {string} prompt
+ */
+const moderatePrompt = async (prompt) => {
+  const moderation = await openai.moderations.create({ input: prompt });
+  const result = moderation.results[0];
+  if (result.flagged) {
+    throw new Error('MODERATION_FLAGGED');
+  }
+};
+
+/**
  * Generate an image from a text prompt using OpenAI Images API.
  * @param {string} prompt - The text description to generate an image from.
  * @returns {Promise<{ imageUrl: string, b64Json: string | null }>}
@@ -15,6 +28,8 @@ const generateImage = async (prompt) => {
   if (!prompt || typeof prompt !== 'string') {
     throw new Error('A valid prompt string is required.');
   }
+
+  await moderatePrompt(prompt);
 
   try {
     const response = await openai.images.generate({
@@ -97,6 +112,8 @@ const generateImages = async (prompt) => {
   if (!prompt || typeof prompt !== 'string') {
     throw new Error('A valid prompt string is required.');
   }
+
+  await moderatePrompt(prompt);
 
   try {
     const response = await openai.images.generate({

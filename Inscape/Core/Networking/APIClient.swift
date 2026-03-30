@@ -10,6 +10,7 @@ enum APIError: Error, LocalizedError {
     case serverError(String)
     case unauthorized
     case insufficientCredits
+    case contentFlagged
     case unknown
 
     var errorDescription: String? {
@@ -20,6 +21,7 @@ enum APIError: Error, LocalizedError {
         case .serverError(let msg): return msg
         case .unauthorized:        return "Session expired. Please log in again."
         case .insufficientCredits: return "Not enough credits. Purchase more to continue."
+        case .contentFlagged:      return "Your prompt contains inappropriate content. Please try a different prompt."
         case .unknown:             return "An unexpected error occurred."
         }
     }
@@ -100,10 +102,13 @@ final class APIClient {
         case 200...299:
             break
         default:
-            // Try to extract server error message
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let errorMsg = json["error"] as? String {
-                throw APIError.serverError(errorMsg)
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let code = json["code"] as? String, code == "CONTENT_FLAGGED" {
+                    throw APIError.contentFlagged
+                }
+                if let errorMsg = json["error"] as? String {
+                    throw APIError.serverError(errorMsg)
+                }
             }
             throw APIError.serverError("Server returned status \(httpResponse.statusCode)")
         }

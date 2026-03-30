@@ -61,12 +61,19 @@ const generateImage = async (req, res) => {
       });
     }
 
-    // 2. Call OpenAI
+    // 2. Call OpenAI (includes moderation check)
     let openAIResult;
     try {
       openAIResult = await generateOpenAIImage(prompt);
     } catch (err) {
       await client.query('ROLLBACK');
+      if (err.message === 'MODERATION_FLAGGED') {
+        return res.status(400).json({
+          success: false,
+          error: 'Your prompt contains inappropriate content. Please try a different prompt.',
+          code: 'CONTENT_FLAGGED',
+        });
+      }
       return res.status(502).json({
         success: false,
         error: `Image generation failed: ${err.message}`,
@@ -284,6 +291,13 @@ const generateBatchImages = async (req, res) => {
       openAIResults = await generateOpenAIImages(prompt);
     } catch (err) {
       await client.query('ROLLBACK');
+      if (err.message === 'MODERATION_FLAGGED') {
+        return res.status(400).json({
+          success: false,
+          error: 'Your prompt contains inappropriate content. Please try a different prompt.',
+          code: 'CONTENT_FLAGGED',
+        });
+      }
       return res.status(502).json({ success: false, error: `Image generation failed: ${err.message}` });
     }
 
