@@ -166,6 +166,19 @@ final class APIClient {
         return data
     }
 
+    func generateImages(prompt: String) async throws -> [GeneratedImageData] {
+        let response: GenerateBatchImageResponse = try await request(
+            path: "/images/generate-batch",
+            method: "POST",
+            body: ["prompt": prompt],
+            timeoutInterval: 120
+        )
+        guard let data = response.data else {
+            throw APIError.serverError(response.error ?? "Image generation failed.")
+        }
+        return data
+    }
+
     func generateInsights(prompt: String) async throws -> String {
         let response: InsightsResponse = try await request(
             path: "/images/insights",

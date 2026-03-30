@@ -5,6 +5,7 @@ const { authenticate } = require('../middleware/auth');
 const { generateLimiter } = require('../middleware/rateLimiter');
 const {
   generateImage,
+  generateBatchImages,
   getImages,
   getImageById,
   deleteImageById,
@@ -18,6 +19,9 @@ router.use(authenticate);
 
 // POST /api/images/generate — generate a new AI image
 router.post('/generate', generateLimiter, validateGenerateImage, generateImage);
+
+// POST /api/images/generate-batch — generate 4 AI images in one OpenAI call
+router.post('/generate-batch', generateLimiter, validateGenerateImage, generateBatchImages);
 
 // POST /api/images/insights — generate symbolic insights for a prompt (no credit cost)
 router.post('/insights', validateGenerateInsights, getInsights);

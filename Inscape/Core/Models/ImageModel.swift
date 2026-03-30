@@ -23,6 +23,12 @@ struct GenerateImageResponse: Codable {
     let error: String?
 }
 
+struct GenerateBatchImageResponse: Codable {
+    let success: Bool
+    let data: [GeneratedImageData]?
+    let error: String?
+}
+
 struct GeneratedImageData: Codable {
     let id: String
     let prompt: String

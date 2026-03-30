@@ -12,8 +12,7 @@ struct ImageResultView: View {
     @State private var additionalPrompt: String = ""
     @State private var navigateToReflect = false
 
-    // TODO: set back to 4 after testing
-    private let imageCount = 1
+    private let imageCount = 4
 
     private let columns = [
         GridItem(.flexible(), spacing: 8),

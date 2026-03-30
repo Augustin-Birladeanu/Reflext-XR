@@ -74,11 +74,11 @@ final class GenerateViewModel: ObservableObject {
         generatedImageURLs = []
 
         do {
-            for _ in 0..<count {
-                let result = try await apiClient.generateImage(prompt: trimmedPrompt)
-                generatedImageURLs.append(result.url)
-                creditsRemaining = result.creditsRemaining
-                session.updateCredits(result.creditsRemaining)
+            let results = try await apiClient.generateImages(prompt: trimmedPrompt)
+            generatedImageURLs = results.map { $0.url }
+            if let last = results.last {
+                creditsRemaining = last.creditsRemaining
+                session.updateCredits(last.creditsRemaining)
             }
         } catch APIError.insufficientCredits {
             errorMessage = "You've run out of credits. Purchase more to continue generating images."

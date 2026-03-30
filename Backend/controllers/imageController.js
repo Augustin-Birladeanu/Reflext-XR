@@ -1,7 +1,7 @@
 // controllers/imageController.js
 const { body, param, validationResult } = require('express-validator');
 const { pool } = require('../config/database');
-const { generateImage: generateOpenAIImage, generateInsights: generateOpenAIInsights } = require('../services/openaiService');
+const { generateImage: generateOpenAIImage, generateImages: generateOpenAIImages, generateInsights: generateOpenAIInsights } = require('../services/openaiService');
 const { uploadImage, deleteImage } = require('../services/storageService');
 
 // ─── Validation Rules ────────────────────────────────────────────────────────
@@ -245,6 +245,101 @@ const deleteImageById = async (req, res) => {
 };
 
 /**
+ * POST /api/images/generate-batch
+ * Generate 4 AI images in a single OpenAI call, upload all to storage, and save to database.
+ */
+const generateBatchImages = async (req, res) => {
+  if (handleValidationErrors(req, res)) return;
+
+  const { prompt } = req.body;
+  const userId = req.user.id;
+  const BATCH_SIZE = 4;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const userResult = await client.query(
+      'SELECT id, credits FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'User not found.' });
+    }
+
+    const user = userResult.rows[0];
+    if (user.credits < BATCH_SIZE) {
+      await client.query('ROLLBACK');
+      return res.status(402).json({
+        success: false,
+        error: 'Insufficient credits. Please purchase more credits to continue.',
+        code: 'INSUFFICIENT_CREDITS',
+      });
+    }
+
+    let openAIResults;
+    try {
+      openAIResults = await generateOpenAIImages(prompt);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      return res.status(502).json({ success: false, error: `Image generation failed: ${err.message}` });
+    }
+
+    let imageUrls;
+    try {
+      imageUrls = await Promise.all(
+        openAIResults.map((result) => {
+          if (result.b64Json) return uploadImage(result.b64Json, userId);
+          if (result.imageUrl) return Promise.resolve(result.imageUrl);
+          throw new Error('No image data returned from OpenAI.');
+        })
+      );
+    } catch (err) {
+      await client.query('ROLLBACK');
+      return res.status(502).json({ success: false, error: `Storage upload failed: ${err.message}` });
+    }
+
+    await client.query(
+      'UPDATE users SET credits = credits - $1, updated_at = NOW() WHERE id = $2',
+      [BATCH_SIZE, userId]
+    );
+
+    const insertResults = await Promise.all(
+      imageUrls.map((url) =>
+        client.query(
+          `INSERT INTO images (user_id, prompt, image_url)
+           VALUES ($1, $2, $3)
+           RETURNING id, prompt, image_url, created_at`,
+          [userId, prompt, url]
+        )
+      )
+    );
+
+    await client.query('COMMIT');
+
+    const creditsRemaining = user.credits - BATCH_SIZE;
+    const images = insertResults.map((r, i) => ({
+      id: r.rows[0].id,
+      prompt: r.rows[0].prompt,
+      url: r.rows[0].image_url,
+      createdAt: r.rows[0].created_at,
+      creditsRemaining,
+      revisedPrompt: openAIResults[i].revisedPrompt,
+    }));
+
+    return res.status(201).json({ success: true, data: images });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('generateBatchImages error:', err);
+    return res.status(500).json({ success: false, error: 'An unexpected error occurred.' });
+  } finally {
+    client.release();
+  }
+};
+
+/**
  * POST /api/images/insights
  * Generate symbolic insights for a given prompt using GPT (no credit cost).
  */
@@ -271,6 +366,7 @@ const getInsights = async (req, res) => {
 
 module.exports = {
   generateImage,
+  generateBatchImages,
   getImages,
   getImageById,
   deleteImageById,

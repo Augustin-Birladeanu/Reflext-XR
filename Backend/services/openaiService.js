@@ -20,7 +20,7 @@ const generateImage = async (prompt) => {
     const response = await openai.images.generate({
       model: 'gpt-image-1',
       prompt: prompt.trim(),
-      n: 1,
+      n: 4,
       size: '1024x1024',
       quality: 'medium',
       // gpt-image-1 always returns b64_json, no response_format param supported
@@ -88,4 +88,40 @@ const generateInsights = async (prompt) => {
   }
 };
 
-module.exports = { generateImage, generateInsights };
+/**
+ * Generate 4 images from a text prompt in a single OpenAI call.
+ * @param {string} prompt
+ * @returns {Promise<Array<{ b64Json, imageUrl, revisedPrompt }>>}
+ */
+const generateImages = async (prompt) => {
+  if (!prompt || typeof prompt !== 'string') {
+    throw new Error('A valid prompt string is required.');
+  }
+
+  try {
+    const response = await openai.images.generate({
+      model: 'gpt-image-1',
+      prompt: prompt.trim(),
+      n: 4,
+      size: '1024x1024',
+      quality: 'medium',
+    });
+
+    if (!response.data || response.data.length === 0) {
+      throw new Error('No image data returned from OpenAI.');
+    }
+
+    return response.data.map((imageData) => ({
+      b64Json: imageData.b64_json || null,
+      imageUrl: imageData.url || null,
+      revisedPrompt: imageData.revised_prompt || prompt,
+    }));
+  } catch (err) {
+    if (err instanceof OpenAI.APIError) {
+      throw new Error(`OpenAI API error (${err.status}): ${err.message}`);
+    }
+    throw err;
+  }
+};
+
+module.exports = { generateImage, generateImages, generateInsights };
