@@ -75,7 +75,7 @@ struct FreeTextPromptView: View {
         }
         .safeAreaInset(edge: .bottom) {
             Button { navigateToResult = true } label: {
-                Text("Generate")
+                Text("Generate Image")
                     .font(.system(size: 17, weight: .bold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)

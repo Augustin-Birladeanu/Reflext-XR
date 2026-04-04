@@ -24,6 +24,8 @@ const moderatePrompt = async (prompt) => {
  * @param {string} prompt - The text description to generate an image from.
  * @returns {Promise<{ imageUrl: string, b64Json: string | null }>}
  */
+const NO_TEXT_SUFFIX = ' No text, words, letters, numbers, or typography anywhere in the image.';
+
 const generateImage = async (prompt) => {
   if (!prompt || typeof prompt !== 'string') {
     throw new Error('A valid prompt string is required.');
@@ -34,7 +36,7 @@ const generateImage = async (prompt) => {
   try {
     const response = await openai.images.generate({
       model: 'gpt-image-1',
-      prompt: prompt.trim(),
+      prompt: prompt.trim() + NO_TEXT_SUFFIX,
       n: 4,
       size: '1024x1024',
       quality: 'medium',
@@ -118,7 +120,7 @@ const generateImages = async (prompt) => {
   try {
     const response = await openai.images.generate({
       model: 'gpt-image-1',
-      prompt: prompt.trim(),
+      prompt: prompt.trim() + NO_TEXT_SUFFIX,
       n: 4,
       size: '1024x1024',
       quality: 'medium',

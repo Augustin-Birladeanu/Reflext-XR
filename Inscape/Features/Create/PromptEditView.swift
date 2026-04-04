@@ -63,7 +63,7 @@ struct PromptEditView: View {
         .background(Color(.systemBackground))
         .safeAreaInset(edge: .bottom) {
             Button { navigateToResponse = true } label: {
-                Text("Submit")
+                Text("Generate Image")
                     .font(.system(size: 17, weight: .bold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)

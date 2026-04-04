@@ -27,6 +27,24 @@ struct ReflectLibraryView: View {
         return f
     }()
 
+    private let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .none
+        f.timeStyle = .short
+        return f
+    }()
+
+    /// Entries grouped by calendar day, newest day first.
+    private var groupedEntries: [(date: Date, entries: [JournalEntry])] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: store.entries) { entry in
+            calendar.startOfDay(for: entry.date)
+        }
+        return grouped
+            .map { (date: $0.key, entries: $0.value.sorted { $0.date > $1.date }) }
+            .sorted { $0.date > $1.date }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // MARK: Header
@@ -118,14 +136,29 @@ struct ReflectLibraryView: View {
                 Spacer()
             } else {
                 ScrollView(showsIndicators: false) {
-                    LazyVStack(spacing: 12) {
-                        ForEach(store.entries) { entry in
-                            EntryRowView(entry: entry, dateFormatter: dateFormatter)
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(groupedEntries, id: \.date) { group in
+                            // Date header
+                            Text(dateFormatter.string(from: group.date))
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, 16)
+                                .padding(.top, 24)
+                                .padding(.bottom, 8)
+
+                            // Timeline entries for this day
+                            ForEach(Array(group.entries.enumerated()), id: \.element.id) { index, entry in
+                                TimelineEntryRow(
+                                    entry: entry,
+                                    timeFormatter: timeFormatter,
+                                    isLast: index == group.entries.count - 1
+                                )
                                 .onTapGesture { selectedEntry = entry }
+                            }
                         }
                     }
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 16)
+                    .padding(.bottom, 24)
                 }
             }
         }
@@ -179,61 +212,87 @@ struct ReflectLibraryView: View {
     }
 }
 
-// MARK: - Entry Row
+// MARK: - Timeline Entry Row
 
-private struct EntryRowView: View {
+private struct TimelineEntryRow: View {
     let entry: JournalEntry
-    let dateFormatter: DateFormatter
+    let timeFormatter: DateFormatter
+    let isLast: Bool
+
+    private let dotSize: CGFloat = 10
+    private let lineWidth: CGFloat = 2
+    private let leftPad: CGFloat = 20
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Thumbnail
-            AsyncImage(url: URL(string: entry.imageURL)) { phase in
-                switch phase {
-                case .success(let img):
-                    img.resizable().scaledToFill()
-                case .failure:
-                    Color(.secondarySystemBackground)
-                        .overlay(Image(systemName: "photo").foregroundColor(.secondary))
-                default:
-                    Color(.secondarySystemBackground).overlay(ProgressView())
+        HStack(alignment: .top, spacing: 0) {
+            // Timeline track
+            ZStack(alignment: .top) {
+                // Vertical line below dot
+                if !isLast {
+                    Rectangle()
+                        .fill(Color(.separator))
+                        .frame(width: lineWidth)
+                        .padding(.top, dotSize)
+                        .frame(maxHeight: .infinity)
                 }
+                // Dot
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: dotSize, height: dotSize)
+                    .padding(.top, 4)
             }
-            .frame(width: 72, height: 72)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .frame(width: leftPad)
 
-            // Text content
-            VStack(alignment: .leading, spacing: 4) {
-                Text(entry.question)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .lineLimit(2)
+            // Card
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top, spacing: 10) {
+                    // Thumbnail
+                    AsyncImage(url: URL(string: entry.imageURL)) { phase in
+                        switch phase {
+                        case .success(let img):
+                            img.resizable().scaledToFill()
+                        case .failure:
+                            Color(.secondarySystemBackground)
+                                .overlay(Image(systemName: "photo").foregroundColor(.secondary))
+                        default:
+                            Color(.secondarySystemBackground).overlay(ProgressView())
+                        }
+                    }
+                    .frame(width: 60, height: 60)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
-                if !entry.reflectionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(entry.reflectionText)
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(entry.question)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.primary)
+                            .lineLimit(2)
+
+                        if !entry.reflectionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Text(entry.reflectionText)
+                                .font(.system(size: 13))
+                                .foregroundColor(.secondary)
+                                .lineLimit(2)
+                        }
+
+                        Text(timeFormatter.string(from: entry.date))
+                            .font(.system(size: 11))
+                            .foregroundColor(Color(.tertiaryLabel))
+                    }
+
+                    Spacer(minLength: 0)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color(.tertiaryLabel))
+                        .padding(.top, 2)
                 }
-
-                Text(dateFormatter.string(from: entry.date))
-                    .font(.system(size: 12))
-                    .foregroundColor(Color(.tertiaryLabel))
+                .padding(12)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
-
-            Spacer(minLength: 0)
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(Color(.tertiaryLabel))
+            .padding(.leading, 12)
+            .padding(.bottom, isLast ? 0 : 12)
         }
-        .padding(12)
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color(.separator), lineWidth: 1)
-        )
     }
 }
 

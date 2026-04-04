@@ -100,8 +100,15 @@ struct GenerateView: View {
             Task { await viewModel.generateImage() }
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: "sparkles")
-                Text("Generate Image")
+                if viewModel.isLoading {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .tint(.white)
+                        .scaleEffect(0.85)
+                } else {
+                    Image(systemName: "sparkles")
+                }
+                Text(viewModel.isLoading ? "Generating..." : "Generate Image")
                     .fontWeight(.semibold)
             }
             .frame(maxWidth: .infinity)
