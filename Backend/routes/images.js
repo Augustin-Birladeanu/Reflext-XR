@@ -6,6 +6,8 @@ const { generateLimiter } = require('../middleware/rateLimiter');
 const {
   generateImage,
   generateBatchImages,
+  generateFromReflection,
+  expandReflection,
   getImages,
   getImageById,
   deleteImageById,
@@ -22,6 +24,12 @@ router.post('/generate', generateLimiter, validateGenerateImage, generateImage);
 
 // POST /api/images/generate-batch — generate 4 AI images in one OpenAI call
 router.post('/generate-batch', generateLimiter, validateGenerateImage, generateBatchImages);
+
+// POST /api/images/generate-from-reflection — expand reflection then generate a single image
+router.post('/generate-from-reflection', generateLimiter, validateGenerateImage, generateFromReflection);
+
+// POST /api/images/expand-reflection — expand reflection to artistic prompt, no credit cost
+router.post('/expand-reflection', validateGenerateImage, expandReflection);
 
 // POST /api/images/insights — generate symbolic insights for a prompt (no credit cost)
 router.post('/insights', validateGenerateInsights, getInsights);

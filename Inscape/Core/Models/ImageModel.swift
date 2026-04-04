@@ -67,6 +67,16 @@ struct InsightsResponse: Codable {
     let error: String?
 }
 
+struct ExpandReflectionData: Codable {
+    let expandedPrompt: String
+}
+
+struct ExpandReflectionResponse: Codable {
+    let success: Bool
+    let data: ExpandReflectionData?
+    let error: String?
+}
+
 struct Pagination: Codable {
     let page: Int
     let limit: Int

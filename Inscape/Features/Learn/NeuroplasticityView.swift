@@ -7,6 +7,7 @@ struct NeuroplasticityView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = GenerateViewModel()
     @State private var reflectionText: String = ""
+    @State private var editableExpanded: String = ""
     @State private var savedToLibrary = false
     @FocusState private var isReflectionFocused: Bool
 
@@ -139,14 +140,41 @@ struct NeuroplasticityView: View {
                                 .frame(maxWidth: .infinity)
                         }
 
+                        // Expanded prompt — editable before generating
+                        if viewModel.expandedPrompt != nil {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Your prompt")
+                                    .font(.system(size: 17, weight: .bold))
+                                    .foregroundColor(.primary)
+                                Text("Feel free to add or change anything before generating.")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary)
+                                TextEditor(text: $editableExpanded)
+                                    .font(.system(size: 15))
+                                    .foregroundColor(.primary)
+                                    .frame(minHeight: 120)
+                                    .scrollContentBackground(.hidden)
+                                    .scrollDisabled(true)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 8)
+                                    .background(Color(.secondarySystemBackground))
+                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .stroke(Color(.systemGray4), lineWidth: 1)
+                                    )
+                            }
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+
                         // Loading / generated image
-                        if viewModel.isLoading {
+                        if viewModel.isExpanding || viewModel.isLoading {
                             VStack(spacing: 14) {
                                 ProgressView()
                                     .progressViewStyle(.circular)
                                     .scaleEffect(1.3)
                                     .tint(.secondary)
-                                Text("Generating your image…")
+                                Text(viewModel.isExpanding ? "Reading your reflection…" : "Generating your image…")
                                     .font(.system(size: 14))
                                     .foregroundColor(.secondary)
                             }
@@ -201,15 +229,19 @@ struct NeuroplasticityView: View {
                                         concept: "Neuroplasticity"
                                     ))
                                     savedToLibrary = true
+                                    NavigationManager.shared.popToRoot = true
                                 } label: {
-                                    Label(savedToLibrary ? "Saved to Reflections" : "Save to Reflections",
-                                          systemImage: savedToLibrary ? "checkmark" : "bookmark")
+                                    Text(savedToLibrary ? "Saved to Reflections" : "Save to Reflections")
                                         .font(.system(size: 15, weight: .medium))
                                         .foregroundColor(savedToLibrary ? .secondary : .blue)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 13)
-                                        .background(Color(.secondarySystemBackground))
+                                        .background(Color.white)
                                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                .stroke(Color.black, lineWidth: 1)
+                                        )
                                 }
                                 .buttonStyle(.plain)
                                 .disabled(savedToLibrary)
@@ -219,21 +251,34 @@ struct NeuroplasticityView: View {
                         // Generate button
                         Button {
                             isReflectionFocused = false
-                            savedToLibrary = false
-                            viewModel.prompt = reflectionText
-                            Task { await viewModel.generateImage() }
+                            if viewModel.generatedImageURL != nil {
+                                savedToLibrary = false
+                                viewModel.generatedImageURL = nil
+                                viewModel.expandedPrompt = nil
+                                editableExpanded = ""
+                                viewModel.prompt = reflectionText
+                                Task { await viewModel.expandReflection() }
+                            } else if viewModel.expandedPrompt == nil {
+                                viewModel.prompt = reflectionText
+                                Task { await viewModel.expandReflection() }
+                            } else {
+                                viewModel.prompt = editableExpanded
+                                Task { await viewModel.generateImage() }
+                            }
                         } label: {
                             Text(
-                                viewModel.isLoading ? "Generating…"
+                                viewModel.isExpanding ? "Reading…"
+                                : viewModel.isLoading ? "Generating…"
                                 : viewModel.generatedImageURL != nil ? "Regenerate"
-                                : "Generate Image"
+                                : viewModel.expandedPrompt != nil ? "Generate Image"
+                                : "Continue"
                             )
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 15)
                             .background(
-                                reflectionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading
+                                reflectionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isExpanding || viewModel.isLoading
                                     ? Color.blue.opacity(0.4)
                                     : Color.blue
                             )
@@ -241,7 +286,7 @@ struct NeuroplasticityView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(
-                            reflectionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading
+                            reflectionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isExpanding || viewModel.isLoading
                         )
                     }
                     .padding(.horizontal, 20)
@@ -253,6 +298,9 @@ struct NeuroplasticityView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .navigationBarHidden(true)
+        .onChange(of: viewModel.expandedPrompt) { _, val in
+            if let v = val { editableExpanded = v }
+        }
     }
 }
 

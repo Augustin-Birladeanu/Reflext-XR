@@ -217,4 +217,53 @@ const generateImages = async (prompt) => {
   return results;
 };
 
-module.exports = { generateImage, generateImages, generateInsights };
+/**
+ * Expand a user's emotional/reflective statement into a rich, symbolic image prompt.
+ * @param {string} statement - The user's raw reflection text.
+ * @returns {Promise<string>} An expanded artistic image prompt.
+ */
+const expandReflectionToPrompt = async (statement) => {
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      {
+        role: 'system',
+        content:
+          'You are an art director for a wellness app. Take the user\'s emotional statement and expand it into a rich, symbolic, non-literal image generation prompt. ' +
+          'Use metaphorical and abstract imagery — no people unless absolutely essential, no text or words in the image. ' +
+          'Be vivid and specific: describe lighting, color palette, atmosphere, and symbolic elements. ' +
+          'Return only the expanded prompt, nothing else.',
+      },
+      { role: 'user', content: statement.trim() },
+    ],
+    max_tokens: 250,
+    temperature: 0.85,
+  });
+  return completion.choices[0]?.message?.content?.trim() || statement.trim();
+};
+
+/**
+ * Expand a reflection statement into an artistic prompt, then generate a single image.
+ * @param {string} statement - The user's raw reflection text.
+ * @returns {Promise<{ b64Json, imageUrl, revisedPrompt }>}
+ */
+const generateImageFromReflection = async (statement) => {
+  if (!statement || typeof statement !== 'string') {
+    throw new Error('A valid statement string is required.');
+  }
+
+  try {
+    const expanded = await expandReflectionToPrompt(statement);
+    return await callImageAPI(
+      WELLNESS_PREFIX + expanded + NO_TEXT_SUFFIX,
+      expanded
+    );
+  } catch (err) {
+    if (err instanceof OpenAI.APIError) {
+      throw new Error(`OpenAI API error (${err.status}): ${err.message}`);
+    }
+    throw err;
+  }
+};
+
+module.exports = { generateImage, generateImages, generateInsights, generateImageFromReflection, expandReflectionToPrompt };

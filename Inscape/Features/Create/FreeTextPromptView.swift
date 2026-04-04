@@ -28,11 +28,11 @@ struct FreeTextPromptView: View {
                 }
                 .padding(.bottom, 10)
 
-                Text("Enter a Prompt")
+                Text("How are you feeling today?")
                     .font(.system(size: 28, weight: .bold))
                     .foregroundColor(.primary)
 
-                Text("Describe the image you'd like to create")
+                Text("Type any emotions you're feeling, or any words that represent symbols or images that come to mind.")
                     .font(.system(size: 15))
                     .foregroundColor(.secondary)
             }
@@ -46,7 +46,7 @@ struct FreeTextPromptView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     ZStack(alignment: .topLeading) {
                         if promptText.isEmpty {
-                            Text("Write your prompt here…")
+                            Text("e.g. a lion defending his land, teeth bared, wind blowing his proud mane")
                                 .font(.system(size: 17))
                                 .foregroundColor(Color(.placeholderText))
                                 .padding(.top, 8)

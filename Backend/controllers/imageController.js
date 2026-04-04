@@ -1,7 +1,7 @@
 // controllers/imageController.js
 const { body, param, validationResult } = require('express-validator');
 const { pool } = require('../config/database');
-const { generateImage: generateOpenAIImage, generateImages: generateOpenAIImages, generateInsights: generateOpenAIInsights } = require('../services/openaiService');
+const { generateImage: generateOpenAIImage, generateImages: generateOpenAIImages, generateInsights: generateOpenAIInsights, generateImageFromReflection: generateOpenAIImageFromReflection, expandReflectionToPrompt } = require('../services/openaiService');
 const { uploadImage, deleteImage } = require('../services/storageService');
 
 // ─── Validation Rules ────────────────────────────────────────────────────────
@@ -10,7 +10,7 @@ const validateGenerateImage = [
   body('prompt')
     .trim()
     .notEmpty().withMessage('Prompt is required.')
-    .isLength({ min: 3, max: 1000 }).withMessage('Prompt must be between 3 and 1000 characters.'),
+    .isLength({ min: 3, max: 4000 }).withMessage('Prompt must be between 3 and 4000 characters.'),
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -340,6 +340,107 @@ const generateBatchImages = async (req, res) => {
 };
 
 /**
+ * POST /api/images/generate-from-reflection
+ * Expand a reflection statement into a symbolic prompt, generate an image, upload, and save.
+ */
+const generateFromReflection = async (req, res) => {
+  if (handleValidationErrors(req, res)) return;
+
+  const { prompt } = req.body;
+  const userId = req.user.id;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const userResult = await client.query(
+      'SELECT id, credits FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'User not found.' });
+    }
+
+    const user = userResult.rows[0];
+    if (user.credits < 1) {
+      await client.query('ROLLBACK');
+      return res.status(402).json({
+        success: false,
+        error: 'Insufficient credits. Please purchase more credits to continue.',
+        code: 'INSUFFICIENT_CREDITS',
+      });
+    }
+
+    let openAIResult;
+    try {
+      openAIResult = await generateOpenAIImageFromReflection(prompt);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      return res.status(502).json({
+        success: false,
+        error: `Image generation failed: ${err.message}`,
+      });
+    }
+
+    let imageUrl;
+    if (openAIResult.b64Json) {
+      try {
+        imageUrl = await uploadImage(openAIResult.b64Json, userId);
+      } catch (err) {
+        await client.query('ROLLBACK');
+        return res.status(502).json({
+          success: false,
+          error: `Storage upload failed: ${err.message}`,
+        });
+      }
+    } else if (openAIResult.imageUrl) {
+      imageUrl = openAIResult.imageUrl;
+    } else {
+      await client.query('ROLLBACK');
+      return res.status(502).json({
+        success: false,
+        error: 'No image data returned from OpenAI.',
+      });
+    }
+
+    await client.query(
+      'UPDATE users SET credits = credits - 1, updated_at = NOW() WHERE id = $1',
+      [userId]
+    );
+
+    const insertResult = await client.query(
+      `INSERT INTO images (user_id, prompt, image_url)
+       VALUES ($1, $2, $3)
+       RETURNING id, user_id, prompt, image_url, created_at`,
+      [userId, prompt, imageUrl]
+    );
+
+    await client.query('COMMIT');
+
+    const image = insertResult.rows[0];
+    return res.status(201).json({
+      success: true,
+      data: {
+        id: image.id,
+        prompt: image.prompt,
+        url: image.image_url,
+        createdAt: image.created_at,
+        creditsRemaining: user.credits - 1,
+        revisedPrompt: openAIResult.revisedPrompt,
+      },
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('generateFromReflection error:', err);
+    return res.status(500).json({ success: false, error: 'An unexpected error occurred.' });
+  } finally {
+    client.release();
+  }
+};
+
+/**
  * POST /api/images/insights
  * Generate symbolic insights for a given prompt using GPT (no credit cost).
  */
@@ -347,7 +448,7 @@ const validateGenerateInsights = [
   body('prompt')
     .trim()
     .notEmpty().withMessage('Prompt is required.')
-    .isLength({ min: 3, max: 1000 }).withMessage('Prompt must be between 3 and 1000 characters.'),
+    .isLength({ min: 3, max: 4000 }).withMessage('Prompt must be between 3 and 4000 characters.'),
 ];
 
 const getInsights = async (req, res) => {
@@ -364,9 +465,29 @@ const getInsights = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/images/expand-reflection
+ * Expand a reflection statement into an artistic prompt. No credit cost.
+ */
+const expandReflection = async (req, res) => {
+  if (handleValidationErrors(req, res)) return;
+
+  const { prompt } = req.body;
+
+  try {
+    const expanded = await expandReflectionToPrompt(prompt);
+    return res.status(200).json({ success: true, data: { expandedPrompt: expanded } });
+  } catch (err) {
+    console.error('expandReflection error:', err);
+    return res.status(502).json({ success: false, error: `Expansion failed: ${err.message}` });
+  }
+};
+
 module.exports = {
   generateImage,
   generateBatchImages,
+  generateFromReflection,
+  expandReflection,
   getImages,
   getImageById,
   deleteImageById,

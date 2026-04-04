@@ -171,6 +171,32 @@ final class APIClient {
         return data
     }
 
+    func expandReflection(prompt: String) async throws -> String {
+        let response: ExpandReflectionResponse = try await request(
+            path: "/images/expand-reflection",
+            method: "POST",
+            body: ["prompt": prompt],
+            timeoutInterval: 30
+        )
+        guard let data = response.data else {
+            throw APIError.serverError(response.error ?? "Expansion failed.")
+        }
+        return data.expandedPrompt
+    }
+
+    func generateImageFromReflection(prompt: String) async throws -> GeneratedImageData {
+        let response: GenerateImageResponse = try await request(
+            path: "/images/generate-from-reflection",
+            method: "POST",
+            body: ["prompt": prompt],
+            timeoutInterval: 120
+        )
+        guard let data = response.data else {
+            throw APIError.serverError(response.error ?? "Image generation failed.")
+        }
+        return data
+    }
+
     func generateImages(prompt: String) async throws -> [GeneratedImageData] {
         let response: GenerateBatchImageResponse = try await request(
             path: "/images/generate-batch",

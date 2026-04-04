@@ -12,6 +12,8 @@ final class GenerateViewModel: ObservableObject {
     @Published var generatedImageURL: String?
     @Published var generatedImageURLs: [String] = []
     @Published var isLoading: Bool = false
+    @Published var isExpanding: Bool = false
+    @Published var expandedPrompt: String?
     @Published var errorMessage: String?
     @Published var successMessage: String?
     @Published var creditsRemaining: Int?
@@ -64,6 +66,29 @@ final class GenerateViewModel: ObservableObject {
         isLoading = false
     }
 
+    /// Expand the user's reflection into an artistic prompt and surface it for editing.
+    func expandReflection() async {
+        let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPrompt.isEmpty else {
+            errorMessage = "Please enter a reflection first."
+            return
+        }
+
+        errorMessage = nil
+        expandedPrompt = nil
+        isExpanding = true
+
+        do {
+            expandedPrompt = try await apiClient.expandReflection(prompt: trimmedPrompt)
+        } catch APIError.unauthorized {
+            session.signOut()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+
+        isExpanding = false
+    }
+
     func generateImages(count: Int = 4) async {
         let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedPrompt.isEmpty else {
@@ -102,6 +127,7 @@ final class GenerateViewModel: ObservableObject {
     func reset() {
         prompt = ""
         generatedImageURL = nil
+        expandedPrompt = nil
         errorMessage = nil
         successMessage = nil
     }
