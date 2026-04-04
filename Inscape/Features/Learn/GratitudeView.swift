@@ -1,8 +1,8 @@
-// SelfCompassionView.swift
+// GratitudeView.swift
 
 import SwiftUI
 
-struct SelfCompassionView: View {
+struct GratitudeView: View {
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = GenerateViewModel()
@@ -11,16 +11,6 @@ struct SelfCompassionView: View {
     @FocusState private var isReflectionFocused: Bool
 
     private let store = JournalStore.shared
-
-    private let practices = [
-        "Imagine what you'd say to a loved one",
-        "Reframe harsh self-critical thoughts",
-        "Acknowledge your pain without judgment",
-        "Write a compassionate letter to yourself",
-        "Treat your energy as something valuable",
-        "Forgive yourself for mistakes and missteps",
-        "Keep a self-compassion journal"
-    ]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,7 +23,7 @@ struct SelfCompassionView: View {
                         .foregroundColor(.blue)
                 }
                 Spacer()
-                Text("Self-Compassion")
+                Text("Gratitude")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(.primary)
             }
@@ -47,7 +37,7 @@ struct SelfCompassionView: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
 
-                    // Full-width hero image
+                    // Hero image
                     Image("learnUI-self")
                         .resizable()
                         .scaledToFill()
@@ -64,42 +54,20 @@ struct SelfCompassionView: View {
                                 .font(.system(size: 17, weight: .bold))
                                 .foregroundColor(.primary)
 
-                            Text("Self-compassion is the practice of treating yourself with the same warmth and care you would extend to others. Suffering and imperfection are part of the shared human experience—not something you are alone in.")
+                            Text("Gratitude is the practice of noticing and appreciating the good things in your life — no matter how big or small. It's about pausing to recognize the people, moments, or things that bring you comfort, joy, or meaning.")
                                 .font(.system(size: 15))
                                 .foregroundColor(.secondary)
                                 .lineSpacing(5)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
 
-                        // Practices
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Practices")
-                                .font(.system(size: 17, weight: .bold))
-                                .foregroundColor(.primary)
-
-                            VStack(alignment: .leading, spacing: 10) {
-                                ForEach(practices, id: \.self) { practice in
-                                    HStack(alignment: .top, spacing: 10) {
-                                        Text("•")
-                                            .font(.system(size: 15, weight: .semibold))
-                                            .foregroundColor(.blue)
-                                            .frame(width: 14)
-                                        Text(practice)
-                                            .font(.system(size: 15))
-                                            .foregroundColor(.secondary)
-                                            .fixedSize(horizontal: false, vertical: true)
-                                    }
-                                }
-                            }
-                        }
-
-                        // Reflection
+                        // Reflection input
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Reflection")
                                 .font(.system(size: 17, weight: .bold))
                                 .foregroundColor(.primary)
 
-                            Text("We invite you to think about a compassionate statement for yourself.")
+                            Text("Imagine a garden that represents your inner world. Each flower, tree, or element symbolizes something or someone you're grateful for. Describe your garden.")
                                 .font(.system(size: 15))
                                 .foregroundColor(.secondary)
                                 .lineSpacing(4)
@@ -107,7 +75,7 @@ struct SelfCompassionView: View {
 
                             ZStack(alignment: .topLeading) {
                                 if reflectionText.isEmpty {
-                                    Text("I am... / I bring to others...")
+                                    Text("In my gratitude garden...")
                                         .font(.system(size: 15))
                                         .foregroundColor(Color(.placeholderText))
                                         .padding(.horizontal, 14)
@@ -128,15 +96,13 @@ struct SelfCompassionView: View {
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .stroke(
-                                        isReflectionFocused
-                                            ? Color.blue
-                                            : Color(.systemGray4),
+                                        isReflectionFocused ? Color.blue : Color(.systemGray4),
                                         lineWidth: 1
                                     )
                             )
                         }
 
-                        // Error message
+                        // Error
                         if let error = viewModel.errorMessage {
                             Text(error)
                                 .font(.system(size: 13))
@@ -145,7 +111,7 @@ struct SelfCompassionView: View {
                                 .frame(maxWidth: .infinity)
                         }
 
-                        // Generated image result
+                        // Loading / generated image
                         if viewModel.isLoading {
                             VStack(spacing: 14) {
                                 ProgressView()
@@ -202,9 +168,9 @@ struct SelfCompassionView: View {
                                 Button {
                                     store.add(JournalEntry(
                                         imageURL: url,
-                                        question: "We invite you to think about a compassionate statement for yourself.",
+                                        question: "Imagine a garden that represents your inner world. Each flower, tree, or element symbolizes something or someone you're grateful for. Describe your garden.",
                                         reflectionText: reflectionText,
-                                        concept: "Self-Compassion"
+                                        concept: "Gratitude"
                                     ))
                                     savedToLibrary = true
                                 } label: {
@@ -222,7 +188,7 @@ struct SelfCompassionView: View {
                             }
                         }
 
-                        // Generate / Regenerate button
+                        // Generate button
                         Button {
                             isReflectionFocused = false
                             savedToLibrary = false
@@ -264,7 +230,7 @@ struct SelfCompassionView: View {
 
 #Preview {
     NavigationStack {
-        SelfCompassionView()
+        GratitudeView()
             .environmentObject(SessionManager.shared)
     }
 }

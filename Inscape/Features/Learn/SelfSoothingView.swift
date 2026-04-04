@@ -1,8 +1,8 @@
-// SelfCompassionView.swift
+// SelfSoothingView.swift
 
 import SwiftUI
 
-struct SelfCompassionView: View {
+struct SelfSoothingView: View {
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = GenerateViewModel()
@@ -12,14 +12,10 @@ struct SelfCompassionView: View {
 
     private let store = JournalStore.shared
 
-    private let practices = [
-        "Imagine what you'd say to a loved one",
-        "Reframe harsh self-critical thoughts",
-        "Acknowledge your pain without judgment",
-        "Write a compassionate letter to yourself",
-        "Treat your energy as something valuable",
-        "Forgive yourself for mistakes and missteps",
-        "Keep a self-compassion journal"
+    private let bullets = [
+        "Drawing repetitive patterns like mandalas",
+        "Choosing colors that reflect or shift your mood",
+        "Creating symbolic images to express difficult emotions"
     ]
 
     var body: some View {
@@ -33,7 +29,7 @@ struct SelfCompassionView: View {
                         .foregroundColor(.blue)
                 }
                 Spacer()
-                Text("Self-Compassion")
+                Text("Self-Soothing")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(.primary)
             }
@@ -47,7 +43,7 @@ struct SelfCompassionView: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
 
-                    // Full-width hero image
+                    // Hero image
                     Image("learnUI-self")
                         .resizable()
                         .scaledToFill()
@@ -64,27 +60,27 @@ struct SelfCompassionView: View {
                                 .font(.system(size: 17, weight: .bold))
                                 .foregroundColor(.primary)
 
-                            Text("Self-compassion is the practice of treating yourself with the same warmth and care you would extend to others. Suffering and imperfection are part of the shared human experience—not something you are alone in.")
+                            Text("Self-soothing is the ability to calm your own body and mind when you're feeling overwhelmed, anxious, sad, angry, or stressed. One way to self-soothe is through creative activity.")
                                 .font(.system(size: 15))
                                 .foregroundColor(.secondary)
                                 .lineSpacing(5)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
 
-                        // Practices
+                        // Bullet list
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Practices")
                                 .font(.system(size: 17, weight: .bold))
                                 .foregroundColor(.primary)
 
                             VStack(alignment: .leading, spacing: 10) {
-                                ForEach(practices, id: \.self) { practice in
+                                ForEach(bullets, id: \.self) { bullet in
                                     HStack(alignment: .top, spacing: 10) {
                                         Text("•")
                                             .font(.system(size: 15, weight: .semibold))
                                             .foregroundColor(.blue)
                                             .frame(width: 14)
-                                        Text(practice)
+                                        Text(bullet)
                                             .font(.system(size: 15))
                                             .foregroundColor(.secondary)
                                             .fixedSize(horizontal: false, vertical: true)
@@ -93,13 +89,13 @@ struct SelfCompassionView: View {
                             }
                         }
 
-                        // Reflection
+                        // Reflection input
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Reflection")
                                 .font(.system(size: 17, weight: .bold))
                                 .foregroundColor(.primary)
 
-                            Text("We invite you to think about a compassionate statement for yourself.")
+                            Text("Type colors or things you find soothing, or describe soothing practices you use when feeling overwhelmed.")
                                 .font(.system(size: 15))
                                 .foregroundColor(.secondary)
                                 .lineSpacing(4)
@@ -107,7 +103,7 @@ struct SelfCompassionView: View {
 
                             ZStack(alignment: .topLeading) {
                                 if reflectionText.isEmpty {
-                                    Text("I am... / I bring to others...")
+                                    Text("I find comfort in...")
                                         .font(.system(size: 15))
                                         .foregroundColor(Color(.placeholderText))
                                         .padding(.horizontal, 14)
@@ -128,15 +124,13 @@ struct SelfCompassionView: View {
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .stroke(
-                                        isReflectionFocused
-                                            ? Color.blue
-                                            : Color(.systemGray4),
+                                        isReflectionFocused ? Color.blue : Color(.systemGray4),
                                         lineWidth: 1
                                     )
                             )
                         }
 
-                        // Error message
+                        // Error
                         if let error = viewModel.errorMessage {
                             Text(error)
                                 .font(.system(size: 13))
@@ -145,7 +139,7 @@ struct SelfCompassionView: View {
                                 .frame(maxWidth: .infinity)
                         }
 
-                        // Generated image result
+                        // Loading / generated image
                         if viewModel.isLoading {
                             VStack(spacing: 14) {
                                 ProgressView()
@@ -202,9 +196,9 @@ struct SelfCompassionView: View {
                                 Button {
                                     store.add(JournalEntry(
                                         imageURL: url,
-                                        question: "We invite you to think about a compassionate statement for yourself.",
+                                        question: "Type colors or things you find soothing, or describe soothing practices you use when feeling overwhelmed.",
                                         reflectionText: reflectionText,
-                                        concept: "Self-Compassion"
+                                        concept: "Self-Soothing"
                                     ))
                                     savedToLibrary = true
                                 } label: {
@@ -222,7 +216,7 @@ struct SelfCompassionView: View {
                             }
                         }
 
-                        // Generate / Regenerate button
+                        // Generate button
                         Button {
                             isReflectionFocused = false
                             savedToLibrary = false
@@ -264,7 +258,7 @@ struct SelfCompassionView: View {
 
 #Preview {
     NavigationStack {
-        SelfCompassionView()
+        SelfSoothingView()
             .environmentObject(SessionManager.shared)
     }
 }
