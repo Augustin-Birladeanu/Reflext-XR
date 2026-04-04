@@ -1,26 +1,18 @@
 // services/storageService.js
-const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { BlobServiceClient } = require('@azure/storage-blob');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
-  // Optional: for S3-compatible services (Cloudflare R2, MinIO, etc.)
-  ...(process.env.S3_ENDPOINT && { endpoint: process.env.S3_ENDPOINT }),
-});
-
-const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'inscape-images';
-const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
+const CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STRING;
+const ACCOUNT_NAME = process.env.AZURE_STORAGE_ACCOUNT_NAME || 'gmuteammergeconflicts';
+const SAS_TOKEN = process.env.AZURE_STORAGE_SAS_TOKEN;
+const CONTAINER_NAME = process.env.AZURE_STORAGE_CONTAINER_NAME || 'images';
 
 /**
- * Upload a base64-encoded image to S3 and return a permanent public URL.
+ * Upload a base64-encoded image to Azure Blob Storage and return a public URL.
  * @param {string} b64Data - Base64-encoded image data (no data URI prefix).
  * @param {string} userId - The user's ID, used for folder organization.
- * @returns {Promise<string>} - The permanent public URL of the uploaded image.
+ * @returns {Promise<string>} - The URL of the uploaded image.
  */
 const uploadImage = async (b64Data, userId) => {
   if (!b64Data) {
@@ -28,52 +20,38 @@ const uploadImage = async (b64Data, userId) => {
   }
 
   const buffer = Buffer.from(b64Data, 'base64');
-  const key = `images/${userId}/${uuidv4()}.png`;
+  const blobName = `${userId}/${uuidv4()}.png`;
 
-  const command = new PutObjectCommand({
-    Bucket: BUCKET_NAME,
-    Key: key,
-    Body: buffer,
-    ContentType: 'image/png',
-    // For public read access. Remove if using signed URLs.
+  const blobServiceClient = BlobServiceClient.fromConnectionString(CONNECTION_STRING);
+  const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
+
+  await containerClient.createIfNotExists({ access: 'blob' });
+
+  const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+  await blockBlobClient.uploadData(buffer, {
+    blobHTTPHeaders: { blobContentType: 'image/png' },
   });
 
-  await s3Client.send(command);
-
-  // Construct the permanent public URL
-  const endpoint = process.env.S3_ENDPOINT;
-  let imageUrl;
-
-  if (endpoint) {
-    // S3-compatible endpoint (Cloudflare R2, MinIO, etc.)
-    imageUrl = `${endpoint}/${BUCKET_NAME}/${key}`;
-  } else {
-    // Standard AWS S3
-    imageUrl = `https://${BUCKET_NAME}.s3.${AWS_REGION}.amazonaws.com/${key}`;
-  }
-
+  // Append SAS token so the URL is accessible even if anonymous access is restricted
+  const imageUrl = `https://${ACCOUNT_NAME}.blob.core.windows.net/${CONTAINER_NAME}/${blobName}?${SAS_TOKEN}`;
   return imageUrl;
 };
 
 /**
- * Delete an image from S3 by its full URL.
+ * Delete an image from Azure Blob Storage by its URL.
  * @param {string} imageUrl - The full URL of the image to delete.
  */
 const deleteImage = async (imageUrl) => {
   try {
-    // Extract the key from the URL
     const url = new URL(imageUrl);
-    // Key is everything after the bucket name in the path
-    const key = url.pathname.replace(`/${BUCKET_NAME}/`, '').replace(/^\//, '');
+    // Path is /{container}/{userId}/{filename}
+    const blobName = url.pathname.split('/').slice(2).join('/');
 
-    const command = new DeleteObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: key,
-    });
-
-    await s3Client.send(command);
+    const blobServiceClient = BlobServiceClient.fromConnectionString(CONNECTION_STRING);
+    const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
+    await containerClient.getBlockBlobClient(blobName).delete();
   } catch (err) {
-    console.error('Warning: Failed to delete image from S3:', err.message);
+    console.error('Warning: Failed to delete image from Azure:', err.message);
     // Non-fatal — we still want to remove the DB record
   }
 };
