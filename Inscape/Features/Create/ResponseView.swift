@@ -116,8 +116,8 @@ struct ResponseView: View {
                             .foregroundColor(.secondary)
                             .padding(.top, 4)
 
-                        if viewModel.errorMessage != nil {
-                            Text("Your prompt contains inappropriate content. Please try a different prompt.")
+                        if let error = viewModel.errorMessage {
+                            Text(error)
                                 .font(.caption)
                                 .foregroundColor(.red)
                                 .multilineTextAlignment(.center)

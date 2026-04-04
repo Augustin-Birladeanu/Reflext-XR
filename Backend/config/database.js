@@ -37,7 +37,7 @@ const initializeDatabase = async () => {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
-        credits INTEGER NOT NULL DEFAULT 10,
+        credits INTEGER NOT NULL DEFAULT 100,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );

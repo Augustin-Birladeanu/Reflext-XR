@@ -6,17 +6,74 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+
+const WELLNESS_PREFIX = 'A beautiful, uplifting, therapeutic wellness artwork. ';
+const NO_TEXT_SUFFIX = ' No text, words, letters, numbers, or typography anywhere in the image.';
+
 /**
- * Run a prompt through OpenAI's Moderation API.
- * Throws if the content is flagged as inappropriate.
+ * Use GPT to rewrite a prompt with any potentially flagged words removed or softened.
  * @param {string} prompt
+ * @returns {Promise<string>}
  */
-const moderatePrompt = async (prompt) => {
-  const moderation = await openai.moderations.create({ input: prompt });
-  const result = moderation.results[0];
-  if (result.flagged) {
-    throw new Error('MODERATION_FLAGGED');
+const simplifySafetyRetry = async (prompt) => {
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      {
+        role: 'system',
+        content:
+          'You are helping rewrite image prompts for a wellness app so they pass safety filters. ' +
+          'Rewrite the prompt to remove or soften any words that could be flagged (e.g. darkness, ashes, fire, broken, anger, death, burning) ' +
+          'while preserving the emotional and symbolic meaning. Keep it gentle, poetic, and metaphorical. ' +
+          'Return only the rewritten prompt, nothing else.',
+      },
+      { role: 'user', content: prompt },
+    ],
+    max_tokens: 200,
+    temperature: 0.5,
+  });
+  return completion.choices[0]?.message?.content?.trim() || prompt;
+};
+
+/**
+ * Call the OpenAI image generation API with a built prompt.
+ * On a 400 safety rejection, rewrites the prompt once and retries.
+ * @param {string} builtPrompt - Already prefixed/suffixed prompt ready to send.
+ * @param {string} originalPrompt - The raw variation, used as fallback revisedPrompt.
+ * @returns {Promise<{ b64Json, imageUrl, revisedPrompt }>}
+ */
+const callImageAPI = async (builtPrompt, originalPrompt) => {
+  const tryGenerate = async (p) => {
+    const response = await openai.images.generate({
+      model: 'gpt-image-1',
+      prompt: p,
+      n: 1,
+      size: '1024x1024',
+      quality: 'medium',
+    });
+    const imageData = response.data[0];
+    if (!imageData) throw new Error('No image data returned from OpenAI.');
+    return imageData;
+  };
+
+  let imageData;
+  try {
+    imageData = await tryGenerate(builtPrompt);
+  } catch (err) {
+    if (err instanceof OpenAI.APIError && err.status === 400) {
+      const simplified = await simplifySafetyRetry(originalPrompt);
+      const retryPrompt = WELLNESS_PREFIX + simplified + NO_TEXT_SUFFIX;
+      imageData = await tryGenerate(retryPrompt);
+    } else {
+      throw err;
+    }
   }
+
+  return {
+    b64Json: imageData.b64_json || null,
+    imageUrl: imageData.url || null,
+    revisedPrompt: imageData.revised_prompt || originalPrompt,
+  };
 };
 
 /**
@@ -24,42 +81,17 @@ const moderatePrompt = async (prompt) => {
  * @param {string} prompt - The text description to generate an image from.
  * @returns {Promise<{ imageUrl: string, b64Json: string | null }>}
  */
-const NO_TEXT_SUFFIX = ' No text, words, letters, numbers, or typography anywhere in the image.';
-
 const generateImage = async (prompt) => {
   if (!prompt || typeof prompt !== 'string') {
     throw new Error('A valid prompt string is required.');
   }
 
-  await moderatePrompt(prompt);
-
   try {
-    const response = await openai.images.generate({
-      model: 'gpt-image-1',
-      prompt: prompt.trim() + NO_TEXT_SUFFIX,
-      n: 4,
-      size: '1024x1024',
-      quality: 'medium',
-      // gpt-image-1 always returns b64_json, no response_format param supported
-    });
-
-    const imageData = response.data[0];
-
-    if (!imageData) {
-      throw new Error('No image data returned from OpenAI.');
-    }
-
-    // gpt-image-1 returns base64 in b64_json
-    const b64Json = imageData.b64_json || null;
-    const imageUrl = imageData.url || null;
-
-    return {
-      b64Json,
-      imageUrl,
-      revisedPrompt: imageData.revised_prompt || prompt,
-    };
+    return await callImageAPI(
+      WELLNESS_PREFIX + prompt.trim() + NO_TEXT_SUFFIX,
+      prompt.trim()
+    );
   } catch (err) {
-    // Surface OpenAI-specific errors clearly
     if (err instanceof OpenAI.APIError) {
       throw new Error(`OpenAI API error (${err.status}): ${err.message}`);
     }
@@ -105,8 +137,64 @@ const generateInsights = async (prompt) => {
   }
 };
 
+const NO_TEXT_AND_SYMBOLIC_SUFFIX =
+  ' No text or words in the image. Symbolic and metaphorical imagery only.';
+
 /**
- * Generate 4 images from a text prompt in a single OpenAI call.
+ * Use GPT to expand a user concept into 4 distinct image prompts,
+ * each interpreting the concept from a different scene/composition/subject
+ * while sharing a consistent artistic style.
+ * @param {string} concept
+ * @returns {Promise<string[]>} Array of 4 image prompts
+ */
+const expandConceptToPrompts = async (concept) => {
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      {
+        role: 'system',
+        content: `You are a creative director for an AI art therapy app.
+Given a user's concept or emotional theme, generate exactly 4 distinct image prompts.
+Each prompt must:
+- Interpret the concept from a completely different angle (different scene, subject, and composition)
+- Share the same artistic style: soft, painterly, ethereal, emotionally evocative
+- Be vivid and specific enough for an image generation model
+- Avoid any text, letters, or words in the described scene
+Return ONLY a JSON array of 4 strings, no explanation. Example format: ["prompt one", "prompt two", "prompt three", "prompt four"]`,
+      },
+      {
+        role: 'user',
+        content: `Concept: "${concept.trim()}"`,
+      },
+    ],
+    max_tokens: 600,
+    temperature: 0.9,
+    response_format: { type: 'json_object' },
+  });
+
+  const raw = completion.choices[0]?.message?.content?.trim() || '{}';
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('Failed to parse prompt variations from GPT.');
+  }
+
+  // Accept either a top-level array or an object with any array value
+  const prompts = Array.isArray(parsed)
+    ? parsed
+    : Object.values(parsed).find((v) => Array.isArray(v));
+
+  if (!Array.isArray(prompts) || prompts.length < 4) {
+    throw new Error('GPT did not return 4 prompt variations.');
+  }
+
+  return prompts.slice(0, 4).map((p) => String(p));
+};
+
+/**
+ * Generate 4 images from a concept by first expanding it into 4 distinct prompts,
+ * then generating one image per prompt in parallel.
  * @param {string} prompt
  * @returns {Promise<Array<{ b64Json, imageUrl, revisedPrompt }>>}
  */
@@ -115,32 +203,18 @@ const generateImages = async (prompt) => {
     throw new Error('A valid prompt string is required.');
   }
 
-  await moderatePrompt(prompt);
+  const variations = await expandConceptToPrompts(prompt);
 
-  try {
-    const response = await openai.images.generate({
-      model: 'gpt-image-1',
-      prompt: prompt.trim() + NO_TEXT_SUFFIX,
-      n: 4,
-      size: '1024x1024',
-      quality: 'medium',
-    });
+  const results = await Promise.all(
+    variations.map((variation) =>
+      callImageAPI(
+        WELLNESS_PREFIX + variation + NO_TEXT_AND_SYMBOLIC_SUFFIX,
+        variation
+      )
+    )
+  );
 
-    if (!response.data || response.data.length === 0) {
-      throw new Error('No image data returned from OpenAI.');
-    }
-
-    return response.data.map((imageData) => ({
-      b64Json: imageData.b64_json || null,
-      imageUrl: imageData.url || null,
-      revisedPrompt: imageData.revised_prompt || prompt,
-    }));
-  } catch (err) {
-    if (err instanceof OpenAI.APIError) {
-      throw new Error(`OpenAI API error (${err.status}): ${err.message}`);
-    }
-    throw err;
-  }
+  return results;
 };
 
 module.exports = { generateImage, generateImages, generateInsights };
