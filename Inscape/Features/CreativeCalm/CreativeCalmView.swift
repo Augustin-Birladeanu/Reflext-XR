@@ -45,19 +45,6 @@ struct CreativeCalmView: View {
             ),
             destination: .floatingBubbles
         ),
-        CalmActivity(
-            title: "Free Draw",
-            imageName: "calm_freedraw",
-            fallbackGradient: LinearGradient(
-                colors: [
-                    Color(red: 0.08, green: 0.08, blue: 0.18),
-                    Color(red: 0.20, green: 0.12, blue: 0.36)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            destination: .freeDraw
-        )
     ]
 
     var body: some View {
@@ -103,8 +90,6 @@ struct CreativeCalmView: View {
                 FingerPaintingView()
             case .floatingBubbles:
                 FloatingBubblesView()
-            case .freeDraw:
-                FreeDrawView()
             }
         }
     }
@@ -116,7 +101,6 @@ enum CalmDestination: Hashable {
     case breathingMandala
     case fingerPainting
     case floatingBubbles
-    case freeDraw
 }
 
 // MARK: - Activity Model
