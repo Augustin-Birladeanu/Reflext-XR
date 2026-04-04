@@ -33,6 +33,19 @@ struct CreativeCalmView: View {
             destination: .fingerPainting
         ),
         CalmActivity(
+            title: "Pour Paint",
+            imageName: "calm_pour",
+            fallbackGradient: LinearGradient(
+                colors: [
+                    Color(red: 0.55, green: 0.75, blue: 0.95),
+                    Color(red: 0.75, green: 0.55, blue: 0.90)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            destination: .pourPaint
+        ),
+        CalmActivity(
             title: "Floating Bubbles",
             imageName: "calm_bubbles",
             fallbackGradient: LinearGradient(
@@ -88,6 +101,8 @@ struct CreativeCalmView: View {
                 BreathingMandalaView()
             case .fingerPainting:
                 FingerPaintingView()
+            case .pourPaint:
+                PourPaintView()
             case .floatingBubbles:
                 FloatingBubblesView()
             }
@@ -100,6 +115,7 @@ struct CreativeCalmView: View {
 enum CalmDestination: Hashable {
     case breathingMandala
     case fingerPainting
+    case pourPaint
     case floatingBubbles
 }
 
