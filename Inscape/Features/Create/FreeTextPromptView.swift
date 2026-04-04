@@ -7,7 +7,11 @@ struct FreeTextPromptView: View {
     @EnvironmentObject private var session: SessionManager
 
     @State private var promptText: String = ""
+    @State private var editableExpanded: String = ""
+    @State private var isExpanding = false
+    @State private var hasExpanded = false
     @State private var navigateToResult = false
+    @State private var expandError: String?
 
     private var canProceed: Bool {
         !promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -44,6 +48,8 @@ struct FreeTextPromptView: View {
             // MARK: Content
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 16) {
+
+                    // Initial prompt input
                     ZStack(alignment: .topLeading) {
                         if promptText.isEmpty {
                             Text("e.g. a lion defending his land, teeth bared, wind blowing his proud mane")
@@ -58,6 +64,7 @@ struct FreeTextPromptView: View {
                             .frame(minHeight: 200)
                             .scrollContentBackground(.hidden)
                             .background(Color.clear)
+                            .disabled(hasExpanded)
                     }
                     .padding(24)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -67,6 +74,55 @@ struct FreeTextPromptView: View {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .stroke(Color.black, lineWidth: 1.5)
                     )
+
+                    // Expanding indicator
+                    if isExpanding {
+                        HStack(spacing: 10) {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .scaleEffect(0.85)
+                            Text("Building your prompt…")
+                                .font(.system(size: 14))
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 4)
+                    }
+
+                    // Expanded prompt editor
+                    if hasExpanded {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Your prompt")
+                                .font(.system(size: 17, weight: .bold))
+                                .foregroundColor(.primary)
+                            Text("Feel free to add or change anything before generating.")
+                                .font(.system(size: 14))
+                                .foregroundColor(.secondary)
+                            TextEditor(text: $editableExpanded)
+                                .font(.system(size: 15))
+                                .foregroundColor(.primary)
+                                .frame(minHeight: 120)
+                                .scrollContentBackground(.hidden)
+                                .scrollDisabled(true)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 8)
+                                .background(Color(.secondarySystemBackground))
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .stroke(Color(.systemGray4), lineWidth: 1)
+                                )
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
+                    // Error
+                    if let error = expandError {
+                        Text(error)
+                            .font(.system(size: 13))
+                            .foregroundColor(.red)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 32)
@@ -74,16 +130,22 @@ struct FreeTextPromptView: View {
             .background(Color(.systemBackground))
         }
         .safeAreaInset(edge: .bottom) {
-            Button { navigateToResult = true } label: {
-                Text("Generate Image")
+            Button {
+                if hasExpanded {
+                    navigateToResult = true
+                } else {
+                    Task { await expandPrompt() }
+                }
+            } label: {
+                Text(isExpanding ? "Building…" : hasExpanded ? "Generate Image" : "Continue")
                     .font(.system(size: 17, weight: .bold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(canProceed ? Color.blue : Color.blue.opacity(0.35))
+                    .background(canProceed && !isExpanding ? Color.blue : Color.blue.opacity(0.35))
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
-            .disabled(!canProceed)
+            .disabled(!canProceed || isExpanding)
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
             .background(Color(.systemBackground))
@@ -91,8 +153,26 @@ struct FreeTextPromptView: View {
         }
         .navigationBarHidden(true)
         .navigationDestination(isPresented: $navigateToResult) {
-            ImageResultView(prompt: promptText.trimmingCharacters(in: .whitespacesAndNewlines))
+            ImageResultView(prompt: editableExpanded.trimmingCharacters(in: .whitespacesAndNewlines))
         }
+    }
+
+    private func expandPrompt() async {
+        let trimmed = promptText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        expandError = nil
+        isExpanding = true
+
+        do {
+            let expanded = try await APIClient.shared.expandReflection(prompt: trimmed)
+            editableExpanded = expanded
+            withAnimation { hasExpanded = true }
+        } catch {
+            expandError = "Couldn't build your prompt. Please try again."
+        }
+
+        isExpanding = false
     }
 }
 
