@@ -8,6 +8,7 @@ const {
   generateBatchImages,
   generateFromReflection,
   expandReflection,
+  saveImage,
   getImages,
   getImageById,
   deleteImageById,
@@ -33,6 +34,9 @@ router.post('/expand-reflection', validateGenerateImage, expandReflection);
 
 // POST /api/images/insights — generate symbolic insights for a prompt (no credit cost)
 router.post('/insights', validateGenerateInsights, getInsights);
+
+// POST /api/images/save — save a generated image to the user's library
+router.post('/save', saveImage);
 
 // GET /api/images — list all images for authenticated user (supports ?page=&limit=)
 router.get('/', getImages);

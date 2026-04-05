@@ -1,7 +1,9 @@
 // controllers/userController.js
 const bcrypt = require('bcryptjs');
+const { v4: uuidv4 } = require('uuid');
 const { body, validationResult } = require('express-validator');
-const { pool } = require('../config/database');
+const { odata } = require('@azure/data-tables');
+const { getUsersTable } = require('../config/tableStorage');
 const { generateToken } = require('../middleware/auth');
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -32,6 +34,16 @@ const handleValidationErrors = (req, res) => {
   return false;
 };
 
+const findUserByEmail = async (usersTable, email) => {
+  const entities = usersTable.listEntities({
+    queryOptions: { filter: odata`email eq ${email}` },
+  });
+  for await (const entity of entities) {
+    return entity;
+  }
+  return null;
+};
+
 // ─── Controllers ─────────────────────────────────────────────────────────────
 
 /**
@@ -43,34 +55,34 @@ const register = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Check for existing user
-    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (existing.rows.length > 0) {
+    const usersTable = getUsersTable();
+
+    const existing = await findUserByEmail(usersTable, email);
+    if (existing) {
       return res.status(409).json({ success: false, error: 'An account with this email already exists.' });
     }
 
+    const userId = uuidv4();
     const passwordHash = await bcrypt.hash(password, 12);
+    const now = new Date().toISOString();
 
-    const result = await pool.query(
-      `INSERT INTO users (email, password_hash, credits)
-       VALUES ($1, $2, 10)
-       RETURNING id, email, credits, created_at`,
-      [email, passwordHash]
-    );
+    await usersTable.createEntity({
+      partitionKey: 'users',
+      rowKey: userId,
+      email,
+      passwordHash,
+      credits: 10,
+      createdAt: now,
+      updatedAt: now,
+    });
 
-    const user = result.rows[0];
-    const token = generateToken(user);
+    const token = generateToken({ id: userId, email, credits: 10 });
 
     return res.status(201).json({
       success: true,
       data: {
         token,
-        user: {
-          id: user.id,
-          email: user.email,
-          credits: user.credits,
-          createdAt: user.created_at,
-        },
+        user: { id: userId, email, credits: 10, createdAt: now },
       },
     });
   } catch (err) {
@@ -88,34 +100,25 @@ const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const result = await pool.query(
-      'SELECT id, email, password_hash, credits, created_at FROM users WHERE email = $1',
-      [email]
-    );
+    const usersTable = getUsersTable();
+    const user = await findUserByEmail(usersTable, email);
 
-    if (result.rows.length === 0) {
+    if (!user) {
       return res.status(401).json({ success: false, error: 'Invalid email or password.' });
     }
 
-    const user = result.rows[0];
-    const passwordMatch = await bcrypt.compare(password, user.password_hash);
-
+    const passwordMatch = await bcrypt.compare(password, user.passwordHash);
     if (!passwordMatch) {
       return res.status(401).json({ success: false, error: 'Invalid email or password.' });
     }
 
-    const token = generateToken(user);
+    const token = generateToken({ id: user.rowKey, email: user.email, credits: user.credits });
 
     return res.status(200).json({
       success: true,
       data: {
         token,
-        user: {
-          id: user.id,
-          email: user.email,
-          credits: user.credits,
-          createdAt: user.created_at,
-        },
+        user: { id: user.rowKey, email: user.email, credits: user.credits, createdAt: user.createdAt },
       },
     });
   } catch (err) {
@@ -126,32 +129,22 @@ const login = async (req, res) => {
 
 /**
  * GET /api/users/me
- * Returns current authenticated user's profile and credit balance.
  */
 const getMe = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const result = await pool.query(
-      'SELECT id, email, credits, created_at FROM users WHERE id = $1',
-      [userId]
-    );
+    const usersTable = getUsersTable();
+    const user = await usersTable.getEntity('users', userId);
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'User not found.' });
-    }
-
-    const user = result.rows[0];
     return res.status(200).json({
       success: true,
-      data: {
-        id: user.id,
-        email: user.email,
-        credits: user.credits,
-        createdAt: user.created_at,
-      },
+      data: { id: user.rowKey, email: user.email, credits: user.credits, createdAt: user.createdAt },
     });
   } catch (err) {
+    if (err.statusCode === 404) {
+      return res.status(404).json({ success: false, error: 'User not found.' });
+    }
     console.error('getMe error:', err);
     return res.status(500).json({ success: false, error: 'Failed to fetch user profile.' });
   }

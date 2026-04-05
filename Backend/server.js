@@ -2,7 +2,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { initializeDatabase } = require('./config/database');
+const { initializeTables } = require('./config/tableStorage');
+const { initializeBlobStorage } = require('./services/storageService');
 const { generalLimiter } = require('./middleware/rateLimiter');
 const imageRoutes = require('./routes/images');
 const userRoutes = require('./routes/users');
@@ -54,7 +55,8 @@ app.use((err, req, res, next) => {
 
 const start = async () => {
   try {
-    await initializeDatabase();
+    await initializeTables();
+    await initializeBlobStorage();
     app.listen(PORT, () => {
       console.log(`🚀 Inscape backend running on http://localhost:${PORT}`);
       console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
