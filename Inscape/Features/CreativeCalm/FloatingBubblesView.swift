@@ -85,7 +85,7 @@ struct FloatingBubblesView: View {
     private func handleTap(_ bubble: BubbleModel) {
         if bubbleColors[bubble.id] != nil {
             withAnimation(.easeOut(duration: 0.28)) {
-                poppingIDs.insert(bubble.id)
+                _ = poppingIDs.insert(bubble.id)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
                 poppedIDs.insert(bubble.id)

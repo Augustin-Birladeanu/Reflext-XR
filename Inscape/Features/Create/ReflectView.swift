@@ -132,12 +132,17 @@ struct ReflectView: View {
     // MARK: - Save
 
     private func saveAndDismiss() {
+        let session = EmotionalSession.shared
         let entry = JournalEntry(
             imageURL: imageURL,
             question: questions[questionIndex],
             reflectionText: reflectionText.trimmingCharacters(in: .whitespacesAndNewlines),
-            concept: concept
+            concept: concept,
+            selectedSymbol: session.selectedSymbol,
+            selectedWord: session.selectedWord,
+            selectedColorName: session.selectedColorName
         )
+        session.clear()
         JournalStore.shared.add(entry)
         inputFocused = false
         navManager.popToRoot = true

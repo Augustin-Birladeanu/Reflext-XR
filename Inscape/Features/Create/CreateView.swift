@@ -1,13 +1,11 @@
 // CreateView.swift
 
 import SwiftUI
-import PhotosUI
 
 struct CreateView: View {
 
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var navManager: NavigationManager
-    @State private var selectedPhoto: PhotosPickerItem? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -69,12 +67,16 @@ struct CreateView: View {
                 .buttonStyle(.plain)
 
                 // MARK: Card 3 — Select from Images
-                PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                NavigationLink(destination: SelectFromImagesView()) {
                     CreateCard(imageName: "createUI-select") {
                         Text("Select from Images")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(.white)
-                            .shadow(color: .black.opacity(0.4), radius: 4, x: 0, y: 2)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Color(.darkGray))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .padding(.horizontal, 24)
                     }
                 }
                 .buttonStyle(.plain)

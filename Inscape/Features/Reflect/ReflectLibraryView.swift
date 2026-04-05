@@ -277,6 +277,32 @@ private struct TimelineEntryRow: View {
                         Text(timeFormatter.string(from: entry.date))
                             .font(.system(size: 11))
                             .foregroundColor(Color(.tertiaryLabel))
+
+                        // Emotional response badges
+                        if entry.selectedSymbol != nil || entry.selectedWord != nil || entry.selectedColorName != nil {
+                            HStack(spacing: 6) {
+                                if let symbol = entry.selectedSymbol {
+                                    Image(systemName: symbol)
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.blue)
+                                }
+                                if let word = entry.selectedWord {
+                                    Text(word)
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundColor(.blue)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.blue.opacity(0.1))
+                                        .clipShape(Capsule())
+                                }
+                                if let colorName = entry.selectedColorName,
+                                   let color = EmotionColor.color(for: colorName) {
+                                    Circle()
+                                        .fill(color)
+                                        .frame(width: 12, height: 12)
+                                }
+                            }
+                        }
                     }
 
                     Spacer(minLength: 0)

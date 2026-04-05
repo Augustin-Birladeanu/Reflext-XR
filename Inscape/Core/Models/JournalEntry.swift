@@ -13,13 +13,27 @@ struct JournalEntry: Identifiable, Codable, Hashable {
     let date: Date
     let concept: String
 
-    init(imageURL: String, question: String, reflectionText: String, concept: String) {
+    // Emotional response selections from SelectFromImagesView
+    var selectedSymbol: String?     // SF symbol name  e.g. "heart.fill"
+    var selectedWord: String?       // emotion word    e.g. "Hopeful"
+    var selectedColorName: String?  // color id        e.g. "blue"
+
+    init(imageURL: String,
+         question: String,
+         reflectionText: String,
+         concept: String,
+         selectedSymbol: String? = nil,
+         selectedWord: String? = nil,
+         selectedColorName: String? = nil) {
         self.id = UUID()
         self.imageURL = imageURL
         self.question = question
         self.reflectionText = reflectionText
         self.date = Date()
         self.concept = concept
+        self.selectedSymbol   = selectedSymbol
+        self.selectedWord     = selectedWord
+        self.selectedColorName = selectedColorName
     }
 }
 
