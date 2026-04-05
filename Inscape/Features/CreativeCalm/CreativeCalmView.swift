@@ -34,7 +34,7 @@ struct CreativeCalmView: View {
         ),
         CalmActivity(
             title: "Pour Paint",
-            imageName: "calm_pour",
+            imageName: "pourpaint",
             fallbackGradient: LinearGradient(
                 colors: [
                     Color(red: 0.55, green: 0.75, blue: 0.95),
