@@ -229,15 +229,14 @@ const expandReflectionToPrompt = async (statement) => {
       {
         role: 'system',
         content:
-          'You are an art director for a wellness app. Take the user\'s emotional statement and expand it into a rich, symbolic, non-literal image generation prompt. ' +
-          'Use metaphorical and abstract imagery — no people unless absolutely essential, no text or words in the image. ' +
-          'Be vivid and specific: describe lighting, color palette, atmosphere, and symbolic elements. ' +
-          'Return only the expanded prompt, nothing else.',
+          'You are a creative director for an AI art therapy app. Take the user\'s emotional statement and write one short paragraph that captures the core theme and mood. ' +
+          'Keep it open and evocative — no specific details about lighting, palette, or composition — so that an image model can interpret it differently each time it is used. ' +
+          'No text or words in the image. Return only the paragraph, nothing else.',
       },
       { role: 'user', content: statement.trim() },
     ],
     max_tokens: 250,
-    temperature: 0.85,
+    temperature: 0.9,
   });
   return completion.choices[0]?.message?.content?.trim() || statement.trim();
 };
