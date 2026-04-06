@@ -1,10 +1,12 @@
 // ReflectFromSelectedImageView.swift
 
 import SwiftUI
+import UIKit
 
 struct ReflectFromSelectedImageView: View {
     let imageName: String       // asset name (e.g. "preset-hands") or remote URL
     let category: String
+    var uiImage: UIImage? = nil // user-picked or generated image
 
     @Environment(\.dismiss) private var dismiss
 
@@ -52,8 +54,15 @@ struct ReflectFromSelectedImageView: View {
 
                     // MARK: Image + question overlay
                     ZStack(alignment: .bottom) {
-                        // Render named asset or fall back to AsyncImage for URLs
-                        if UIImage(named: imageName) != nil {
+                        // Render user-picked image, named asset, or fall back to AsyncImage for URLs
+                        if let uiImage {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 280)
+                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        } else if UIImage(named: imageName) != nil {
                             Image(imageName)
                                 .resizable()
                                 .scaledToFill()

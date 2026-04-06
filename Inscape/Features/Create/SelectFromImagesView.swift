@@ -2,6 +2,7 @@
 
 import SwiftUI
 import Combine
+import PhotosUI
 
 // MARK: - Preset image model
 
@@ -48,12 +49,17 @@ private let stickerOptions: [StickerOption] = [
     StickerOption(symbol: "wind",            label: "Freedom"),
     StickerOption(symbol: "bird.fill",       label: "Courage"),
     StickerOption(symbol: "mountain.2.fill", label: "Strength"),
+    StickerOption(symbol: "bolt.fill",       label: "Energy"),
+    StickerOption(symbol: "snowflake",       label: "Stillness"),
+    StickerOption(symbol: "tornado",         label: "Chaos"),
+    StickerOption(symbol: "eye.fill",        label: "Clarity"),
 ]
 
 private let wordOptions = [
     "Hopeful","Grateful","Strong","Peaceful",
     "Loved","Brave","Growing","Healing",
     "Free","Joy","Worthy","Enough",
+    "Resilient","Calm","Seen",
 ]
 
 // MARK: - Category data
@@ -134,6 +140,15 @@ struct SelectFromImagesView: View {
     @State private var selectedWord: String?   = nil
     @State private var selectedColorName: String? = nil
 
+    // Camera roll
+    @State private var photoPickerItem: PhotosPickerItem? = nil
+    @State private var userPickedImages: [UIImage] = []
+    @State private var selectedUserImageIndex: Int? = nil
+    @State private var showPhotoPicker = false
+
+    // Generate sheet
+    @State private var showGenerateSheet = false
+
     private var visibleImages: [PresetImage] {
         categoryImages[selectedCategory] ?? []
     }
@@ -154,26 +169,28 @@ struct SelectFromImagesView: View {
                         .foregroundColor(.blue)
                 }
                 Spacer()
-                Menu {
-                    ForEach(categoryOrder, id: \.self) { cat in
-                        Button {
-                            selectedCategory = cat
-                            selectedAsset = nil
-                        } label: {
-                            HStack {
-                                Text(cat)
-                                if cat == selectedCategory { Image(systemName: "checkmark") }
+                if selectedTab == .images {
+                    Menu {
+                        ForEach(categoryOrder, id: \.self) { cat in
+                            Button {
+                                selectedCategory = cat
+                                selectedAsset = nil
+                            } label: {
+                                HStack {
+                                    Text(cat)
+                                    if cat == selectedCategory { Image(systemName: "checkmark") }
+                                }
                             }
                         }
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(selectedCategory)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(.primary)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.secondary)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(selectedCategory)
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundColor(.primary)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
             }
@@ -187,6 +204,8 @@ struct SelectFromImagesView: View {
                     imageGridContent
                 } else if let asset = selectedAsset {
                     responseContent(for: asset)
+                } else if let index = selectedUserImageIndex, index < userPickedImages.count {
+                    responseContent(for: userPickedImages[index])
                 } else {
                     noImagePrompt
                 }
@@ -218,10 +237,13 @@ struct SelectFromImagesView: View {
 
             // MARK: Action buttons
             HStack(spacing: 12) {
-                ActionBarButton(title: "Add", filled: false) { }
-                    .disabled(selectedAsset == nil)
+                ActionBarButton(title: "Add", filled: false) {
+                    showPhotoPicker = true
+                }
 
-                ActionBarButton(title: "Generate", filled: false) { }
+                ActionBarButton(title: "Generate", filled: false) {
+                    showGenerateSheet = true
+                }
 
                 ActionBarButton(title: "Reflect", filled: true) {
                     EmotionalSession.shared.selectedSymbol    = selectedSymbol
@@ -229,7 +251,7 @@ struct SelectFromImagesView: View {
                     EmotionalSession.shared.selectedColorName = selectedColorName
                     navigateToReflect = true
                 }
-                .disabled(selectedAsset == nil)
+                .disabled(selectedAsset == nil && selectedUserImageIndex == nil)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
@@ -238,9 +260,34 @@ struct SelectFromImagesView: View {
         }
         .background(Color(.systemBackground))
         .navigationBarHidden(true)
+        .photosPicker(isPresented: $showPhotoPicker, selection: $photoPickerItem, matching: .images)
+        .sheet(isPresented: $showGenerateSheet) {
+            GenerateToGridSheet { image in
+                userPickedImages.append(image)
+                selectedUserImageIndex = userPickedImages.count - 1
+                selectedAsset = nil
+                selectedTab = .images
+            }
+        }
+        .onChange(of: photoPickerItem) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    userPickedImages.append(image)
+                    selectedUserImageIndex = userPickedImages.count - 1
+                    selectedAsset = nil
+                    selectedTab = .images
+                }
+                photoPickerItem = nil
+            }
+        }
         .navigationDestination(isPresented: $navigateToReflect) {
             if let asset = selectedAsset {
                 ReflectFromSelectedImageView(imageName: asset, category: selectedCategory)
+            } else if let index = selectedUserImageIndex, index < userPickedImages.count {
+                ReflectFromSelectedImageView(imageName: "", category: selectedCategory,
+                                             uiImage: userPickedImages[index])
             }
         }
     }
@@ -259,11 +306,26 @@ struct SelectFromImagesView: View {
 
             ScrollView(showsIndicators: false) {
                 LazyVGrid(columns: gridColumns, spacing: 8) {
+                    // User-picked images first
+                    ForEach(userPickedImages.indices, id: \.self) { index in
+                        UserImageCell(image: userPickedImages[index],
+                                      isSelected: selectedUserImageIndex == index)
+                            .onTapGesture {
+                                if selectedUserImageIndex == index {
+                                    selectedUserImageIndex = nil
+                                } else {
+                                    selectedUserImageIndex = index
+                                    selectedAsset = nil
+                                }
+                            }
+                    }
+                    // Preset images
                     ForEach(visibleImages) { preset in
                         PresetImageCell(preset: preset,
                                         isSelected: selectedAsset == preset.id)
                             .onTapGesture {
                                 selectedAsset = (selectedAsset == preset.id) ? nil : preset.id
+                                if selectedAsset != nil { selectedUserImageIndex = nil }
                             }
                     }
                 }
@@ -291,6 +353,30 @@ struct SelectFromImagesView: View {
                     .padding(.top, 10)
 
                 // Tab-specific selector
+                switch selectedTab {
+                case .stickers: stickersSelector
+                case .words:    wordsSelector
+                case .colors:   colorsSelector
+                default:        EmptyView()
+                }
+            }
+            .padding(.bottom, 16)
+        }
+    }
+
+    @ViewBuilder
+    private func responseContent(for image: UIImage) -> some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 16) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 200)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+
                 switch selectedTab {
                 case .stickers: stickersSelector
                 case .words:    wordsSelector
@@ -388,31 +474,31 @@ struct SelectFromImagesView: View {
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 20)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
-                    ForEach(EmotionColor.all) { ec in
-                        let isSelected = selectedColorName == ec.id
-                        Button {
-                            selectedColorName = isSelected ? nil : ec.id
-                        } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(ec.color)
-                                    .frame(width: 54, height: 54)
-                                    .shadow(color: ec.color.opacity(0.4), radius: isSelected ? 8 : 3)
-                                if isSelected {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 18, weight: .bold))
-                                        .foregroundColor(.white)
-                                }
+            let columns = [GridItem(.flexible()), GridItem(.flexible()),
+                           GridItem(.flexible()), GridItem(.flexible())]
+            LazyVGrid(columns: columns, spacing: 16) {
+                ForEach(EmotionColor.all) { ec in
+                    let isSelected = selectedColorName == ec.id
+                    Button {
+                        selectedColorName = isSelected ? nil : ec.id
+                    } label: {
+                        ZStack {
+                            Circle()
+                                .fill(ec.color)
+                                .frame(width: 54, height: 54)
+                                .shadow(color: ec.color.opacity(0.4), radius: isSelected ? 8 : 3)
+                            if isSelected {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(.white)
                             }
                         }
-                        .animation(.spring(response: 0.25), value: selectedColorName)
                     }
+                    .animation(.spring(response: 0.25), value: selectedColorName)
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 8)
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
         }
     }
 
@@ -429,6 +515,37 @@ struct SelectFromImagesView: View {
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - User image cell
+
+private struct UserImageCell: View {
+    let image: UIImage
+    let isSelected: Bool
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .aspectRatio(1, contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.blue, lineWidth: 3)
+                    }
+                }
+            if isSelected {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundColor(.blue)
+                    .background(Circle().fill(Color.white).padding(2))
+                    .padding(8)
+            }
+        }
+        .animation(.easeInOut(duration: 0.15), value: isSelected)
     }
 }
 
@@ -481,6 +598,148 @@ private struct ActionBarButton: View {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(filled ? Color.blue : Color(.secondarySystemBackground))
                 )
+        }
+    }
+}
+
+// MARK: - Generate to grid sheet
+
+private struct GenerateToGridSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var viewModel = GenerateViewModel()
+    @FocusState private var isPromptFocused: Bool
+    let onImageAdded: (UIImage) -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Prompt input
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Describe your image")
+                            .font(.headline)
+
+                        ZStack(alignment: .topLeading) {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(.secondarySystemBackground))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(isPromptFocused ? Color.accentColor : Color.clear, lineWidth: 2)
+                                )
+
+                            TextEditor(text: $viewModel.prompt)
+                                .focused($isPromptFocused)
+                                .frame(minHeight: 100, maxHeight: 180)
+                                .padding(12)
+                                .scrollContentBackground(.hidden)
+                                .background(Color.clear)
+
+                            if viewModel.prompt.isEmpty {
+                                Text("e.g. A peaceful forest at dawn…")
+                                    .foregroundColor(Color(.placeholderText))
+                                    .padding(.horizontal, 16)
+                                    .padding(.top, 20)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                        .frame(minHeight: 120)
+                    }
+
+                    // Generate button
+                    Button {
+                        isPromptFocused = false
+                        Task { await viewModel.generateImage() }
+                    } label: {
+                        HStack(spacing: 10) {
+                            if viewModel.isLoading {
+                                ProgressView()
+                                    .progressViewStyle(.circular)
+                                    .tint(.white)
+                                    .scaleEffect(0.85)
+                            } else {
+                                Image(systemName: "sparkles")
+                            }
+                            Text(viewModel.isLoading ? "Generating…" : "Generate Image")
+                                .fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(viewModel.canGenerate ? Color.accentColor : Color.secondary.opacity(0.3))
+                        .foregroundColor(viewModel.canGenerate ? .white : .secondary)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                    .disabled(!viewModel.canGenerate)
+
+                    // Generated image preview + Add button
+                    if let urlString = viewModel.generatedImageURL {
+                        AsyncImage(url: URL(string: urlString)) { phase in
+                            switch phase {
+                            case .success(let image):
+                                VStack(spacing: 12) {
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 280)
+                                        .clipShape(RoundedRectangle(cornerRadius: 16))
+
+                                    Button {
+                                        Task {
+                                            guard let url = URL(string: urlString),
+                                                  let data = try? await URLSession.shared.data(from: url).0,
+                                                  let uiImage = UIImage(data: data) else { return }
+                                            onImageAdded(uiImage)
+                                            dismiss()
+                                        }
+                                    } label: {
+                                        Label("Add to Grid", systemImage: "plus.circle.fill")
+                                            .fontWeight(.semibold)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 14)
+                                            .background(Color.accentColor)
+                                            .foregroundColor(.white)
+                                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                                    }
+                                }
+                            case .empty, .failure:
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color(.secondarySystemBackground))
+                                    .frame(height: 280)
+                                    .overlay(ProgressView())
+                            @unknown default:
+                                EmptyView()
+                            }
+                        }
+                    }
+
+                    // Error
+                    if let error = viewModel.errorMessage {
+                        HStack(spacing: 10) {
+                            Image(systemName: "exclamationmark.circle.fill").foregroundColor(.red)
+                            Text(error).font(.subheadline)
+                            Spacer()
+                            Button { viewModel.clearError() } label: {
+                                Image(systemName: "xmark").font(.caption.weight(.bold)).foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(14)
+                        .background(Color.red.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                }
+                .padding(20)
+            }
+            .navigationTitle("Generate Image")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { isPromptFocused = false }
+                }
+            }
         }
     }
 }

@@ -32,8 +32,12 @@ struct EmotionColor: Identifiable {
         EmotionColor(id: "orange", color: Color(red: 0.95, green: 0.65, blue: 0.35)),
         EmotionColor(id: "pink",   color: Color(red: 0.95, green: 0.60, blue: 0.75)),
         EmotionColor(id: "teal",   color: Color(red: 0.28, green: 0.73, blue: 0.72)),
-        EmotionColor(id: "yellow", color: Color(red: 0.97, green: 0.85, blue: 0.32)),
-        EmotionColor(id: "red",    color: Color(red: 0.88, green: 0.35, blue: 0.35)),
+        EmotionColor(id: "yellow",  color: Color(red: 0.97, green: 0.85, blue: 0.32)),
+        EmotionColor(id: "red",     color: Color(red: 0.88, green: 0.35, blue: 0.35)),
+        EmotionColor(id: "indigo",  color: Color(red: 0.37, green: 0.38, blue: 0.82)),
+        EmotionColor(id: "coral",   color: Color(red: 0.98, green: 0.50, blue: 0.45)),
+        EmotionColor(id: "mint",    color: Color(red: 0.60, green: 0.92, blue: 0.78)),
+        EmotionColor(id: "brown",   color: Color(red: 0.67, green: 0.48, blue: 0.34)),
     ]
 
     static func color(for id: String) -> Color? {
