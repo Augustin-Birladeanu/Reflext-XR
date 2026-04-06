@@ -2,30 +2,81 @@
 
 import SwiftUI
 
+// MARK: - Petal Shape
+
+private struct PetalShape: Shape {
+    let angleDeg: Double
+    let innerRadius: CGFloat
+    let outerRadius: CGFloat
+    let halfWidth: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let cx = rect.midX, cy = rect.midY
+        let a  = CGFloat(angleDeg * .pi / 180)
+        let h  = outerRadius - innerRadius
+
+        // Points in upright frame (petal pointing in -y), then rotated by a
+        func rot(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: cx + x * cos(a) - y * sin(a),
+                    y: cy + x * sin(a) + y * cos(a))
+        }
+
+        let base = rot(0,             -innerRadius)
+        let tip  = rot(0,             -outerRadius)
+        let c1L  = rot(-halfWidth,     -(innerRadius + h * 0.40))
+        let c2L  = rot(-halfWidth * 0.38, -(outerRadius - h * 0.16))
+        let c1R  = rot( halfWidth * 0.38, -(outerRadius - h * 0.16))
+        let c2R  = rot( halfWidth,     -(innerRadius + h * 0.40))
+
+        var p = Path()
+        p.move(to: base)
+        p.addCurve(to: tip,  control1: c1L, control2: c2L)
+        p.addCurve(to: base, control1: c1R, control2: c2R)
+        p.closeSubpath()
+        return p
+    }
+}
+
+// MARK: - Ring Shape (reusable circle)
+
+private struct RingShape: Shape {
+    let radius: CGFloat
+    func path(in rect: CGRect) -> Path {
+        let cx = rect.midX, cy = rect.midY
+        return Path(ellipseIn: CGRect(x: cx - radius, y: cy - radius,
+                                      width: radius * 2, height: radius * 2))
+    }
+}
+
+// MARK: - Main View
+
 struct BreathingMandalaView: View {
     @Environment(\.dismiss) private var dismiss
 
-    @State private var phase: BreathPhase = .idle
-    @State private var outerScale: CGFloat = 1.0   // driven by breath cycle
+    // Per-section state  (0 = center, 1–8 = inner, 9–16 = outer)
+    @State private var fillProgress: [Int: CGFloat] = [:]
+    @State private var sectionColor:  [Int: Color]  = [:]
 
-    // Hold-to-grow state
-    @State private var holdScale: CGFloat = 1.0
-    @State private var colorProgress: CGFloat = 0.0
-    @State private var growTimer: Timer?
-    @State private var drainTimer: Timer?
+    // Breath state
+    @State private var holdingIndex: Int?   = nil
+    @State private var phase: BreathPhase   = .idle
+    @State private var countdown: Int       = 3
+    @State private var fillTimer: Timer?    = nil
+    @State private var breathTimer: Timer?  = nil
 
     @State private var selectedColorIndex: Int = 0
 
-    // Cycles through all four mandalas on each visit
-    @AppStorage("breathingMandalaIndex") private var nextMandalaIndex: Int = 0
-    @State private var mandalaName: String = "Mandala1"
-    private let mandalaNames = ["Mandala1", "Mandala2", "Mandala4"]
+    // Timing
+    private let fps: Double        = 60.0
+    private let breathDuration     = 3.0
+    private var fillStep: CGFloat  { CGFloat(1.0 / (breathDuration * fps)) }
+    private var drainStep: CGFloat { fillStep * 1.8 }   // drain ~1.7 s
 
-    private let maxHoldScale: CGFloat  = 1.65
-    private let growRate: CGFloat      = 0.003
-    private let colorGrowRate: CGFloat = 0.0046
-    private let colorDrainRate: CGFloat = 0.011
-    private let holdShrinkRate: CGFloat = 0.65 * 0.011
+    // Mandala geometry for 300 pt canvas
+    private let canvasSize: CGFloat = 300
+    private let centerR: CGFloat    = 24
+    private let innerIn: CGFloat    = 28,  innerOut: CGFloat  = 84,  innerHW: CGFloat  = 21
+    private let outerIn: CGFloat    = 87,  outerOut: CGFloat  = 148, outerHW: CGFloat  = 29
 
     let palette: [Color] = [
         Color(red: 0.62, green: 0.42, blue: 0.92), // violet
@@ -35,68 +86,70 @@ struct BreathingMandalaView: View {
         Color(red: 0.98, green: 0.80, blue: 0.45), // gold
         Color(red: 0.78, green: 0.92, blue: 0.58), // sage
     ]
-
     var selectedColor: Color { palette[selectedColorIndex] }
 
-    var revealRadius: CGFloat { max(colorProgress * 155, 1) }
-
-    enum BreathPhase: Equatable {
-        case idle, inhale, hold, exhale
-        var labelOpacity: Double { self == .idle ? 0.55 : 0.90 }
-    }
+    enum BreathPhase: Equatable { case idle, inhale, exhale }
 
     var displayLabel: String {
         switch phase {
-        case .idle:   return "Hold to color"
-        case .inhale: return "Breathe in…"
-        case .hold:   return "Release when ready"
-        case .exhale: return "Breathe out…"
+        case .idle:   return "Touch and hold to breathe"
+        case .inhale: return "Inhale... \(countdown)"
+        case .exhale: return "Exhale... \(countdown)"
         }
     }
+
+    // Index helpers
+    private func innerIdx(_ i: Int) -> Int { i + 1 }
+    private func outerIdx(_ i: Int) -> Int { i + 9 }
+    private func innerAngle(_ i: Int) -> Double { Double(i) * 45.0 }
+    private func outerAngle(_ i: Int) -> Double { Double(i) * 45.0 + 22.5 }
+
+    // MARK: - Body
 
     var body: some View {
         ZStack {
             LinearGradient(
                 colors: [
                     Color(red: 0.07, green: 0.05, blue: 0.18),
-                    Color(red: 0.12, green: 0.08, blue: 0.28)
+                    Color(red: 0.12, green: 0.08, blue: 0.28),
                 ],
                 startPoint: .top, endPoint: .bottom
             )
             .ignoresSafeArea()
 
             VStack(spacing: 0) {
+                Spacer().frame(height: 72)
+
+                // Breath label — top of screen
+                Text(displayLabel)
+                    .font(.system(size: 22, weight: .light, design: .rounded))
+                    .foregroundColor(.white.opacity(phase == .idle ? 0.48 : 0.93))
+                    .monospacedDigit()
+                    .animation(.easeInOut(duration: 0.4), value: phase)
+
                 Spacer()
 
-                imageMandala
-                    .frame(width: 260, height: 260)
+                // Mandala
+                mandalaView
+                    .frame(width: canvasSize, height: canvasSize)
 
-                Spacer().frame(height: 48)
-
-                Text(displayLabel)
-                    .font(.system(size: 20, weight: .light, design: .rounded))
-                    .foregroundColor(.white.opacity(phase.labelOpacity))
-                    .animation(.easeInOut(duration: 0.35), value: phase)
-
-                Spacer().frame(height: 36)
+                Spacer()
 
                 // Color palette
                 HStack(spacing: 18) {
                     ForEach(palette.indices, id: \.self) { i in
-                        let isSelected = selectedColorIndex == i
+                        let sel = selectedColorIndex == i
                         Circle()
                             .fill(palette[i])
-                            .frame(width: isSelected ? 36 : 26, height: isSelected ? 36 : 26)
-                            .overlay(
-                                Circle().stroke(Color.white.opacity(isSelected ? 0.85 : 0), lineWidth: 2)
-                            )
-                            .shadow(color: palette[i].opacity(isSelected ? 0.7 : 0), radius: 8)
+                            .frame(width: sel ? 36 : 26, height: sel ? 36 : 26)
+                            .overlay(Circle().stroke(Color.white.opacity(sel ? 0.85 : 0), lineWidth: 2))
+                            .shadow(color: palette[i].opacity(sel ? 0.7 : 0), radius: 8)
                             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedColorIndex)
                             .onTapGesture { selectedColorIndex = i }
                     }
                 }
 
-                Spacer()
+                Spacer().frame(height: 48)
             }
         }
         .navigationBarHidden(true)
@@ -117,112 +170,163 @@ struct BreathingMandalaView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
         }
-        .onAppear {
-            // Capture this visit's mandala, then advance for next visit
-            mandalaName = mandalaNames[nextMandalaIndex % mandalaNames.count]
-            nextMandalaIndex = (nextMandalaIndex + 1) % mandalaNames.count
-        }
         .onDisappear { stopAll() }
     }
 
-    // MARK: - Mandala
+    // MARK: - Mandala View
+
+    private var mandalaView: some View {
+        ZStack {
+            // Decorative rings
+            RingShape(radius: outerOut + 2)
+                .stroke(Color.white.opacity(0.05), lineWidth: 0.75)
+            RingShape(radius: outerIn - 2)
+                .stroke(Color.white.opacity(0.09), lineWidth: 0.75)
+            RingShape(radius: innerIn - 2)
+                .stroke(Color.white.opacity(0.09), lineWidth: 0.75)
+            RingShape(radius: centerR + 2)
+                .stroke(Color.white.opacity(0.06), lineWidth: 0.75)
+
+            // Outer petals (behind inner)
+            ForEach(0..<8, id: \.self) { i in
+                sectionBody(
+                    index: outerIdx(i),
+                    shape: PetalShape(angleDeg:    outerAngle(i),
+                                      innerRadius: outerIn,
+                                      outerRadius: outerOut,
+                                      halfWidth:   outerHW)
+                )
+            }
+
+            // Inner petals (in front of outer)
+            ForEach(0..<8, id: \.self) { i in
+                sectionBody(
+                    index: innerIdx(i),
+                    shape: PetalShape(angleDeg:    innerAngle(i),
+                                      innerRadius: innerIn,
+                                      outerRadius: innerOut,
+                                      halfWidth:   innerHW)
+                )
+            }
+
+            // Center circle
+            sectionBody(index: 0, shape: RingShape(radius: centerR))
+        }
+    }
+
+    // MARK: - Section View Builder
 
     @ViewBuilder
-    private var imageMandala: some View {
-        ZStack {
-            Image(mandalaName)
-                .resizable()
-                .scaledToFit()
-                .blendMode(.screen)
+    private func sectionBody<S: Shape>(index: Int, shape: S) -> some View {
+        let progress = fillProgress[index] ?? 0.0
+        let color    = sectionColor[index] ?? selectedColor
+        let active   = holdingIndex == index && phase == .inhale
 
-            RadialGradient(
-                stops: [
-                    .init(color: selectedColor,              location: 0.00),
-                    .init(color: selectedColor,              location: 0.82),
-                    .init(color: selectedColor.opacity(0.4), location: 0.92),
-                    .init(color: .clear,                     location: 1.00)
-                ],
-                center: .center,
-                startRadius: 0,
-                endRadius: revealRadius
+        ZStack {
+            // Fill layer
+            shape.fill(color.opacity(Double(progress) * 0.82))
+
+            // Active shimmer while inhaling
+            if active {
+                shape
+                    .fill(Color.white.opacity(Double(progress) * 0.12))
+                    .blendMode(.screen)
+            }
+
+            // Outline
+            shape.stroke(
+                Color.white.opacity(progress > 0.02 ? 0.26 : 0.14),
+                lineWidth: 1.0
             )
-            .mask(Image(mandalaName).resizable().scaledToFit())
-            .blendMode(.screen)
-            .shadow(color: selectedColor.opacity(colorProgress * 0.6), radius: 18)
         }
-        .scaleEffect(holdScale)
-        .scaleEffect(outerScale)
+        .shadow(color: color.opacity(Double(progress) * 0.50), radius: 10)
+        .contentShape(shape)
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    if growTimer == nil { startGrowing() }
-                    if phase == .idle || phase == .exhale { startCycle() }
+                    if holdingIndex != index { startInhale(for: index) }
                 }
                 .onEnded { _ in
-                    stopGrowing()
-                    startDraining()
-                    if phase == .hold { startExhale() }
+                    if holdingIndex == index { endHold(for: index) }
                 }
         )
     }
 
-    // MARK: - Timers
+    // MARK: - Breath Logic
 
-    private func startGrowing() {
-        drainTimer?.invalidate()
-        drainTimer = nil
-        guard growTimer == nil else { return }
-        growTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { _ in
-            holdScale     = min(holdScale     + growRate,      maxHoldScale)
-            colorProgress = min(colorProgress + colorGrowRate, 1.0)
+    private func startInhale(for index: Int) {
+        guard phase != .exhale else { return }
+        stopAll()
+        holdingIndex = index
+        fillProgress[index] = 0.0       // always restart fill from zero
+        phase    = .inhale
+        countdown = 3
+
+        // 1-second countdown ticks
+        var elapsed = 0
+        breathTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { t in
+            elapsed += 1
+            countdown = max(3 - elapsed, 1)
+        }
+
+        // 60 fps smooth fill
+        fillTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / fps, repeats: true) { t in
+            let current = fillProgress[index] ?? 0.0
+            guard current < 1.0 else { t.invalidate(); fillTimer = nil; return }
+            fillProgress[index] = min(current + fillStep, 1.0)
         }
     }
 
-    private func stopGrowing() {
-        growTimer?.invalidate()
-        growTimer = nil
+    private func endHold(for index: Int) {
+        stopFillTimer()
+        stopBreathTimer()
+        holdingIndex = nil
+        let progress = fillProgress[index] ?? 0.0
+
+        if progress >= 1.0 {
+            // Petal fully inhaled — lock color and start exhale
+            sectionColor[index] = selectedColor
+            beginExhale()
+        } else {
+            // Lifted early — drain back and return to idle
+            drainBack(index: index)
+        }
     }
 
-    private func startDraining() {
-        drainTimer?.invalidate()
-        drainTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { _ in
-            holdScale     = max(holdScale     - holdShrinkRate, 1.0)
-            colorProgress = max(colorProgress - colorDrainRate, 0.0)
-            if holdScale <= 1.0 && colorProgress <= 0.0 {
-                drainTimer?.invalidate()
-                drainTimer = nil
+    private func beginExhale() {
+        phase     = .exhale
+        countdown = 3
+        var elapsed = 0
+        breathTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { t in
+            elapsed += 1
+            if elapsed >= Int(breathDuration) {
+                t.invalidate()
+                breathTimer = nil
+                withAnimation(.easeInOut(duration: 0.5)) { phase = .idle }
+                countdown = 3
+            } else {
+                countdown = max(3 - elapsed, 1)
             }
         }
     }
 
-    private func stopAll() {
-        stopGrowing()
-        drainTimer?.invalidate()
-        drainTimer = nil
-    }
-
-    // MARK: - Breath Cycle
-
-    private func startCycle() {
-        phase = .inhale
-        withAnimation(.easeInOut(duration: 4.0)) {
-            outerScale = 1.55
+    private func drainBack(index: Int) {
+        phase = .idle
+        fillTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / fps, repeats: true) { t in
+            let current = fillProgress[index] ?? 0.0
+            let next    = max(current - drainStep, 0.0)
+            fillProgress[index] = next
+            if next <= 0 { t.invalidate(); fillTimer = nil }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) { phase = .hold }
     }
 
-    private func startExhale() {
-        guard phase == .hold else { return }
-        phase = .exhale
-        withAnimation(.easeInOut(duration: 4.0)) {
-            outerScale = 1.0
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) { phase = .idle }
-    }
+    // MARK: - Timer Helpers
+
+    private func stopFillTimer()   { fillTimer?.invalidate();   fillTimer   = nil }
+    private func stopBreathTimer() { breathTimer?.invalidate(); breathTimer = nil }
+    private func stopAll()         { stopFillTimer(); stopBreathTimer() }
 }
 
 #Preview {
-    NavigationStack {
-        BreathingMandalaView()
-    }
+    NavigationStack { BreathingMandalaView() }
 }
