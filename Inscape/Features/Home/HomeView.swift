@@ -76,7 +76,7 @@ struct HomeView: View {
                     Image("home_logo")
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 90, height: 90)
+                        .frame(width: 115, height: 115)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Reflect XR")
