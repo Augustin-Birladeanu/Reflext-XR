@@ -25,15 +25,26 @@ struct SplashScreenView: View {
                     .opacity(logoOpacity)
 
                 VStack(spacing: 5) {
-                    Text("Reflect XR")
+                    Text("Reflect Mobile")
                         .font(.system(size: 30, weight: .bold))
                         .foregroundColor(.primary)
-                    Text("Enhancing Life for Wellness")
+                    Text("Arts for Wellness")
                         .font(.system(size: 14, weight: .regular))
                         .foregroundColor(.secondary)
                 }
                 .offset(y: textOffset)
                 .opacity(textOpacity)
+            }
+
+            VStack {
+                Spacer()
+                Text("Reflect Mobile is intended to be used for your personal well-being only and should not replace a relationship with a licensed healthcare provider.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+                    .padding(.bottom, 40)
+                    .opacity(textOpacity)
             }
         }
         .opacity(screenOpacity)

@@ -79,10 +79,10 @@ struct HomeView: View {
                         .frame(width: 115, height: 115)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Reflect XR")
+                        Text("Reflect Mobile")
                             .font(.system(size: 24, weight: .bold))
                             .foregroundColor(.primary)
-                        Text("Enhancing Life for Wellness")
+                        Text("Arts for Wellness")
                             .font(.system(size: 13, weight: .regular))
                             .foregroundColor(.secondary)
                     }

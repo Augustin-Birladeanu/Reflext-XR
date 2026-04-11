@@ -96,6 +96,12 @@ struct AuthView: View {
                     .disabled(viewModel.isLoading || !viewModel.isFormValid)
                     .padding(.horizontal, 24)
 
+                    Text("Reflect Mobile is intended to be used for your personal well-being only and should not replace a relationship with a licensed healthcare provider.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+
                     if !viewModel.isLoginMode {
                         Text("By creating an account, you agree to our Terms of Service and Privacy Policy.")
                             .font(.caption)
