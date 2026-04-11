@@ -4,10 +4,14 @@ import SwiftUI
 
 // MARK: - Model
 
-struct BubbleModel: Identifiable {
+struct FloatingBubble: Identifiable {
     let id = UUID()
-    let position: CGPoint
+    let xFraction: CGFloat    // 0.0–1.0 fraction of canvas width
     let size: CGFloat
+    let duration: Double      // seconds to travel from bottom to top
+    let wobbleAmount: CGFloat
+    var fillColor: Color? = nil
+    var isPopping: Bool = false
 }
 
 // MARK: - Main View
@@ -15,11 +19,10 @@ struct BubbleModel: Identifiable {
 struct FloatingBubblesView: View {
     @Environment(\.dismiss) private var dismiss
 
-    @State private var bubbles: [BubbleModel] = []
-    @State private var bubbleColors: [UUID: Color] = [:]
-    @State private var poppingIDs: Set<UUID> = []   // mid-pop animation
-    @State private var poppedIDs: Set<UUID> = []    // fully removed
+    @State private var bubbles: [FloatingBubble] = []
     @State private var selectedColorIndex = 0
+    @State private var canvasSize: CGSize = .zero
+    @State private var spawnTimer: Timer? = nil
 
     private let palette: [Color] = [
         Color(red: 0.85, green: 0.55, blue: 0.70),
@@ -32,7 +35,7 @@ struct FloatingBubblesView: View {
         Color(red: 0.80, green: 0.70, blue: 0.98),
     ]
     private var selectedColor: Color { palette[selectedColorIndex] }
-    private let bubbleSizes: [CGFloat] = [44, 56, 68, 80, 96, 114, 130, 150, 170]
+    private let bubbleSizes: [CGFloat] = [38, 50, 62, 76, 90, 106, 124]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -58,42 +61,88 @@ struct FloatingBubblesView: View {
                     Color(.systemBackground).ignoresSafeArea()
 
                     ForEach(bubbles) { bubble in
-                        if !poppedIDs.contains(bubble.id) {
-                            BubbleView(
-                                bubble: bubble,
-                                fillColor: bubbleColors[bubble.id],
-                                isPopping: poppingIDs.contains(bubble.id),
-                                onTap: { handleTap(bubble) }
-                            )
-                            .position(bubble.position)
-                        }
+                        FloatingBubbleView(
+                            bubble: bubble,
+                            canvasHeight: geo.size.height,
+                            canvasWidth: geo.size.width,
+                            onTap: { handleTap(bubble) }
+                        )
                     }
 
                     paletteBar
                 }
                 .onAppear {
-                    guard bubbles.isEmpty else { return }
-                    bubbles = placeBubbles(in: geo.size)
+                    guard canvasSize == .zero else { return }
+                    canvasSize = geo.size
+                    startSpawning()
+                }
+                .onDisappear {
+                    spawnTimer?.invalidate()
+                    spawnTimer = nil
+                    bubbles.removeAll()
                 }
             }
         }
         .navigationBarHidden(true)
     }
 
-    // MARK: - Tap handler
+    // MARK: - Spawning
 
-    private func handleTap(_ bubble: BubbleModel) {
-        if bubbleColors[bubble.id] != nil {
-            withAnimation(.easeOut(duration: 0.28)) {
-                _ = poppingIDs.insert(bubble.id)
+    private func startSpawning() {
+        // Staggered initial burst so the screen fills naturally
+        for i in 0..<7 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.65) {
+                spawnBubble()
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
-                poppedIDs.insert(bubble.id)
-                poppingIDs.remove(bubble.id)
+        }
+
+        // Steady calm rhythm after the burst
+        let timer = Timer.scheduledTimer(withTimeInterval: 1.25, repeats: true) { _ in
+            spawnBubble()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        spawnTimer = timer
+    }
+
+    private func spawnBubble() {
+        guard canvasSize != .zero else { return }
+        let size = bubbleSizes.randomElement()!
+        let margin = size / 2 + 14
+        let xFrac = CGFloat.random(in: (margin / canvasSize.width)...(1 - margin / canvasSize.width))
+        let duration = Double.random(in: 7.5...12.0)
+        let wobble = CGFloat.random(in: 8...22)
+
+        let bubble = FloatingBubble(
+            xFraction: xFrac,
+            size: size,
+            duration: duration,
+            wobbleAmount: wobble
+        )
+        bubbles.append(bubble)
+
+        // Remove after it exits the top
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration + 1.5) {
+            bubbles.removeAll { $0.id == bubble.id }
+        }
+    }
+
+    // MARK: - Tap
+
+    private func handleTap(_ bubble: FloatingBubble) {
+        guard let idx = bubbles.firstIndex(where: { $0.id == bubble.id }) else { return }
+
+        if bubbles[idx].fillColor == nil {
+            // Fill with selected color
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.58)) {
+                bubbles[idx].fillColor = selectedColor
             }
         } else {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.58)) {
-                bubbleColors[bubble.id] = selectedColor
+            // Pop filled bubble
+            withAnimation(.easeOut(duration: 0.25)) {
+                bubbles[idx].isPopping = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                bubbles.removeAll { $0.id == bubble.id }
             }
         }
     }
@@ -125,68 +174,96 @@ struct FloatingBubblesView: View {
         .padding(.horizontal, 16)
         .padding(.bottom, 24)
     }
-
-    // MARK: - Layout
-
-    private func placeBubbles(in size: CGSize) -> [BubbleModel] {
-        let paletteHeight: CGFloat = 110
-        let canvasHeight = size.height - paletteHeight
-        var placed: [CGRect] = []
-        var result: [BubbleModel] = []
-        let sizePool: [CGFloat] = (0..<3).flatMap { _ in bubbleSizes }.shuffled()
-
-        for bSize in sizePool {
-            for _ in 0..<40 {
-                let x = CGFloat.random(in: bSize / 2 + 8 ... size.width - bSize / 2 - 8)
-                let y = CGFloat.random(in: bSize / 2 + 8 ... canvasHeight - bSize / 2 - 8)
-                let rect = CGRect(x: x - bSize / 2 - 6, y: y - bSize / 2 - 6,
-                                  width: bSize + 12, height: bSize + 12)
-                if !placed.contains(where: { $0.intersects(rect) }) {
-                    placed.append(rect)
-                    result.append(BubbleModel(position: CGPoint(x: x, y: y), size: bSize))
-                    break
-                }
-            }
-        }
-        return result
-    }
 }
 
-// MARK: - Bubble View
+// MARK: - Individual Floating Bubble View
 
-struct BubbleView: View {
-    let bubble: BubbleModel
-    let fillColor: Color?
-    let isPopping: Bool
+/// Each bubble manages its own upward float and wobble animations via @State.
+/// When the parent updates `bubble.fillColor` or `bubble.isPopping`, SwiftUI
+/// re-renders this view with the new values while preserving the in-flight
+/// yPos / xOffset animations (same view identity via bubble.id).
+struct FloatingBubbleView: View {
+    let bubble: FloatingBubble
+    let canvasHeight: CGFloat
+    let canvasWidth: CGFloat
     let onTap: () -> Void
+
+    @State private var yPos: CGFloat
+    @State private var xOffset: CGFloat = 0
+
+    init(bubble: FloatingBubble, canvasHeight: CGFloat, canvasWidth: CGFloat, onTap: @escaping () -> Void) {
+        self.bubble = bubble
+        self.canvasHeight = canvasHeight
+        self.canvasWidth = canvasWidth
+        self.onTap = onTap
+        // Start just below the visible canvas
+        _yPos = State(initialValue: canvasHeight + bubble.size / 2)
+    }
+
+    private var startX: CGFloat { bubble.xFraction * canvasWidth }
 
     var body: some View {
         ZStack {
-            // Fill
+            // Glassy inner fill (subtle even when empty, brighter when filled)
             Circle()
-                .fill(fillColor ?? .clear)
-                .scaleEffect(fillColor != nil ? 1.0 : 0.001)
-
-            // Outline
-            Circle()
-                .stroke(
-                    fillColor ?? Color.primary.opacity(0.22),
-                    lineWidth: bubble.size > 100 ? 2.0 : 1.5
+                .fill(
+                    bubble.fillColor.map { _ in Color.clear } ??
+                    Color.white.opacity(0.06)
                 )
 
-            // Glint
-            if fillColor != nil {
+            // Color fill (animates in on tap)
+            if let color = bubble.fillColor {
                 Circle()
-                    .fill(Color.white.opacity(0.28))
-                    .frame(width: bubble.size * 0.22, height: bubble.size * 0.22)
-                    .offset(x: -bubble.size * 0.18, y: -bubble.size * 0.18)
+                    .fill(color)
+                    .transition(.scale.combined(with: .opacity))
             }
+
+            // Stroke — iridescent gradient when empty, colored when filled
+            Circle()
+                .stroke(
+                    bubble.fillColor.map { _ in
+                        AnyShapeStyle(bubble.fillColor ?? Color.clear)
+                    } ?? AnyShapeStyle(
+                        AngularGradient(
+                            colors: [
+                                Color(red: 0.62, green: 0.82, blue: 0.98).opacity(0.75),
+                                Color(red: 0.85, green: 0.65, blue: 0.95).opacity(0.75),
+                                Color(red: 0.98, green: 0.82, blue: 0.65).opacity(0.55),
+                                Color(red: 0.60, green: 0.92, blue: 0.85).opacity(0.70),
+                                Color(red: 0.62, green: 0.82, blue: 0.98).opacity(0.75),
+                            ],
+                            center: .center
+                        )
+                    ),
+                    lineWidth: bubble.size > 100 ? 2.5 : 2.0
+                )
+
+            // Glint highlight
+            Circle()
+                .fill(Color.white.opacity(bubble.fillColor != nil ? 0.30 : 0.18))
+                .frame(width: bubble.size * 0.22, height: bubble.size * 0.22)
+                .offset(x: -bubble.size * 0.18, y: -bubble.size * 0.18)
         }
         .frame(width: bubble.size, height: bubble.size)
         .contentShape(Circle())
-        .scaleEffect(isPopping ? 1.5 : 1.0)
-        .opacity(isPopping ? 0.0 : 1.0)
+        .scaleEffect(bubble.isPopping ? 1.6 : 1.0)
+        .opacity(bubble.isPopping ? 0.0 : 1.0)
+        .position(x: startX + xOffset, y: yPos)
         .onTapGesture(perform: onTap)
+        .onAppear {
+            // Float upward — linear so speed stays constant
+            withAnimation(.linear(duration: bubble.duration)) {
+                yPos = -bubble.size / 2
+            }
+            // Gentle horizontal drift
+            let wobbleTarget = CGFloat.random(in: -bubble.wobbleAmount...bubble.wobbleAmount)
+            withAnimation(
+                .easeInOut(duration: Double.random(in: 1.8...2.8))
+                .repeatForever(autoreverses: true)
+            ) {
+                xOffset = wobbleTarget
+            }
+        }
     }
 }
 
